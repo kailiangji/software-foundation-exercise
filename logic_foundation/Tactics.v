@@ -122,6 +122,13 @@ Proof.
       reflexivity.
 Qed.
 
+Theorem eqb_refl : forall n, n =? n = true.
+Proof.
+  intro n. induction n.
+  - reflexivity.
+  - simpl. apply IHn.
+Qed.
+
 Theorem double_injective_take2 : forall n m,
     double n = double m -> n = m.
 Proof.
