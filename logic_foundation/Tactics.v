@@ -267,8 +267,18 @@ Qed.
 Theorem bool_fn_applied_thrice :
   forall (f : bool -> bool) (b : bool), f (f (f b)) = f b.
 Proof.
-  intros f b. destruct (f b) eqn:E.
-Admitted.
+  intros f b. destruct b eqn:Eb.
+  - destruct (f true) eqn:Eft.
+    + rewrite Eft. apply Eft.
+    + destruct (f false) eqn:Eff.
+      * apply Eft.
+      * apply Eff.
+  - destruct (f false) eqn:Eff.
+    + destruct (f true) eqn:Eft.
+      * apply Eft.
+      * apply Eff.
+    + rewrite Eff. apply Eff.
+Qed.
 
 Theorem eqb_sym : forall n m : nat, (n =? m) = (m =? n).
 Proof.
