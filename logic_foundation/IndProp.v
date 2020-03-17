@@ -141,6 +141,8 @@ End Playground.
 
 Definition lt (n m : nat) := le (S n) m.
 
+Notation "m < n" := (lt m n).
+
 Inductive square_of : nat -> nat -> Prop :=
 | sq n : square_of n (n * n).
 
@@ -150,3 +152,67 @@ Inductive next_nat : nat -> nat -> Prop :=
 Inductive next_even : nat -> nat -> Prop :=
 | ne_1 n : even (S n) -> next_even n (S n)
 | ne_2 n (H : even (S (S n))) : next_even n (S (S n)).
+
+Inductive total_relation : nat -> nat -> Prop :=
+| re_n n : total_relation n n
+| arti_sym m n : total_relation m n -> total_relation m (S n).
+
+Inductive empty_relation : nat -> Prop :=
+| empty_n n : n < 0 -> empty_relation n.
+
+Lemma le_trans : forall m n o, m <= n -> n <= o -> m <= o.
+Proof.
+  intros m n o H1 H2.
+  induction H2.
+  - assumption.
+  - apply le_S. assumption.
+Qed.
+
+Theorem O_le_n : forall n, 0 <= n.
+Proof.
+  intro n. induction n as [| n' IHn'].
+  - constructor.
+  - apply le_S. apply IHn'.
+Qed.
+
+Theorem n_le_m__Sn_le_Sm : forall n m,
+    S n <= S m -> n <= m.
+Proof.
+  intros n m H. inversion H.
+  - constructor.
+  - apply (le_trans n (S n) m).
+    + apply le_S. apply le_n.
+    + apply H1.
+Qed.
+
+Theorem le_plus_1 : forall a b, a <= a + b.
+Proof.
+  intros a b. induction b as [| b' IH].
+  - rewrite plus_comm. simpl. apply le_n.
+  - rewrite plus_comm. simpl. rewrite plus_comm.
+    apply le_S. apply IH.
+Qed.
+
+Theorem plus_lt : forall n1 n2 m,
+    n1 + n2 < m -> n1 < m /\ n2 < m.
+Proof.
+  unfold lt.
+  intros n1 n2 m H. split.
+  - apply (le_trans (S n1) (S (n1 + n2)) m).
+    induction n2 as [| n2' IH].
+    + rewrite plus_comm. simpl. apply le_n.
+    + rewrite plus_comm. simpl. rewrite plus_comm.
+      rewrite plus_comm in H. simpl in H. rewrite plus_comm in H.
+      apply (le_trans (S n1) (S (n1 + n2')) (S (S (n1 + n2')))).
+      assert (H' : (S n1) + n2' = S (n1 + n2')).
+      { simpl. reflexivity. }
+      rewrite <- H'. apply le_plus_1.
+      apply le_S. apply le_n.
+    + apply H.
+  - apply (le_trans (S n2) (S (n1 + n2)) m).
+    + rewrite plus_comm.
+      assert (H' : (S n2) + n1 = S(n2 + n1)).
+      { simpl. reflexivity. }
+      rewrite <- H'. apply le_plus_1.
+    + apply H.
+Qed.
