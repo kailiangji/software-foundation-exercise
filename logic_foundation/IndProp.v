@@ -176,6 +176,17 @@ Proof.
 Qed.
 
 Theorem n_le_m__Sn_le_Sm : forall n m,
+    n <= m -> S n <= S m.
+Proof.
+  intros n m H.
+  induction H.
+  - apply le_n.
+  - apply (le_trans (S n) (S m) (S (S m))).
+    + apply IHle.
+    + apply le_S. apply le_n.
+Qed.
+
+Theorem Sn_le_Sm__n_le_m : forall n m,
     S n <= S m -> n <= m.
 Proof.
   intros n m H. inversion H.
@@ -215,4 +226,31 @@ Proof.
       { simpl. reflexivity. }
       rewrite <- H'. apply le_plus_1.
     + apply H.
+Qed.
+
+Theorem lt_S : forall n m, n < m -> n < S m.
+Proof.
+  unfold lt. intros n m H.
+  apply (le_trans (S n) m (S m)).
+  - apply H.
+  - apply le_S. apply le_n.
+Qed.
+
+Theorem leb_complete : forall n m,
+    n <=? m = true -> n <= m.
+Proof.
+  intros n m.
+  generalize dependent n.
+  induction m as [|m' IHm].
+  - intros n H.
+    destruct n as [|n'].
+    + apply le_n.
+    + inversion H.
+  - intros n H.
+    destruct n as [|n'].
+    + apply O_le_n.
+    + simpl in H. 
+      apply IHm in H.
+      apply n_le_m__Sn_le_Sm.
+      apply H.
 Qed.
