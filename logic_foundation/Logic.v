@@ -283,6 +283,28 @@ Proof.
       * simpl; right; assumption.
 Qed.
 
+Lemma In_app_iff : forall A l l' (a : A),
+    In a (l ++ l') <-> In a l \/ In a l'.
+Proof.
+  intros A l l' a.
+  split.
+  - intro H. induction l as [| h t IH].
+    + simpl in H. right. apply H.
+    + simpl in H. destruct H.
+      * left. simpl. left. apply H.
+      * apply IH in H. simpl. destruct H.
+        left. right. apply H. right. apply H.
+  - intros [Hl | Hr].
+    + induction l as [| h t IH].
+      * inversion Hl.
+      * simpl in Hl. destruct Hl.
+        { rewrite <- H. simpl. left. reflexivity. }
+        { simpl. right. apply IH. apply H. }
+    + induction l as [| h t IH].
+      * simpl. apply Hr.
+      * simpl. right. apply IH.
+Qed.
+
 Fixpoint All {T : Type} (P : T -> Prop) (l : list T) : Prop :=
   match l with
   | [] => True
