@@ -151,8 +151,8 @@ Inductive total_relation : nat -> nat -> Prop :=
 | re_n n : total_relation n n
 | arti_sym m n : total_relation m n -> total_relation m (S n).
 
-Inductive empty_relation : nat -> Prop :=
-| empty_n n : n < 0 -> empty_relation n.
+Inductive empty_relation : nat -> nat -> Prop :=
+| impossible m n : m < 0 -> empty_relation m n.
 
 Lemma le_trans : forall m n o, m <= n -> n <= o -> m <= o.
 Proof.
