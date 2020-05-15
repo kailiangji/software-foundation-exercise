@@ -1037,3 +1037,5 @@ Module ForLoopImp.
       st =[ FOR c1 ; b ; c3 DO c2 END ]=> st' / r           
                                                                   
   where "st '=[' c ']=>' st' '/' s" := (ceval c st s st').
+
+End ForLoopImp.
