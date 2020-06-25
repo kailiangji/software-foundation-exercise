@@ -11,7 +11,7 @@ Fixpoint ceval_step2 (st : state) (c : com) (i : nat) : state :=
     match c with
     | SKIP => st
     | l ::= a1 =>
-      (l |-> aeval st a1 ; st)
+      (l !-> aeval st a1 ; st)
     | c1 ;; c2 =>
       let st' := ceval_step2 st c1 i' in
       ceval_step2 st' c2 i'
@@ -37,7 +37,7 @@ Fixpoint ceval_step3 (st : state) (c : com) (i : nat) : option state :=
     match c with
     | SKIP => Some st
     | l ::= a1 =>
-      Some (l |-> aeval st a1 ; st)
+      Some (l !-> aeval st a1 ; st)
     | c1 ;; c2 =>
       match (ceval_step3 st c1 i') with
       | Some st' => ceval_step3 st' c2 i'
@@ -75,7 +75,7 @@ Fixpoint ceval_step (st : state) (c : com) (i : nat) : option state :=
     | SKIP =>
       Some st
     | l ::= a1 =>
-      Some (l |-> aeval st a1 ; st)
+      Some (l !-> aeval st a1 ; st)
     | c1 ;; c2 =>
       LETOPT st' <== ceval_step st c1 i' IN
              ceval_step st' c2 i'
@@ -114,7 +114,7 @@ Definition pup_to_n : com :=
   END.
 
 Example pup_to_n_1 :
-  test_ceval (X |-> 5) pup_to_n = Some (Some 0, Some 15, None).
+  test_ceval (X !-> 5) pup_to_n = Some (0, 15, 0).
 Proof. reflexivity. Qed.
 
 Definition is_even : com :=
@@ -128,7 +128,7 @@ Definition is_even : com :=
   FI.
 
 Example is_even_10 :
-  test_ceval (X |-> 10) is_even = Some (Some 0, None, Some 0).
+  test_ceval (X !-> 10) is_even = Some (0, 0, 0).
 Proof. reflexivity. Qed.
 
 Theorem ceval_step__ceval : forall c st st',

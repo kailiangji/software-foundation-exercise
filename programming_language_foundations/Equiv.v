@@ -215,66 +215,65 @@ Theorem identity_assignment : forall x,
 Proof.
   unfold cequiv. split.
   - intro H. inversion H. inversion H2.  inversion H5. subst.    
-    apply (E_Seq _ _ _ (x |-> aeval st 0; st)).
+    apply (E_Seq _ _ _ (x !-> aeval st 0; st)).
     + apply E_Ass. reflexivity.
-    + assert (Heq : (x |-> aeval st 0; st) = (x |-> aeval (x |-> aeval st 0; st) x; x |-> aeval st 0; st)).
+    + assert (Heq : (x !-> aeval st 0; st) = (x !-> aeval (x !-> aeval st 0; st) x; x !-> aeval st 0; st)).
       { apply functional_extensionality.
         intro x0. destruct (string_dec x x0).
-        * rewrite e. rewrite update_eq. rewrite update_eq.
-          simpl. rewrite update_eq. reflexivity.
-        * assert (Heq1 : (x |-> aeval (x |-> aeval st 0; st) x; x |-> aeval st 0; st) x0 = (x |-> aeval st 0; st) x0).
-          { apply update_neq. apply n. }
+        * rewrite e. rewrite t_update_eq. rewrite t_update_eq.
+          simpl. rewrite t_update_eq. reflexivity.
+        * assert (Heq1 : (x !-> aeval (x !-> aeval st 0; st) x; x !-> aeval st 0; st) x0 = (x !-> aeval st 0; st) x0).
+          { apply t_update_neq. apply n. }
           rewrite Heq1. reflexivity.
       }
       rewrite <- Heq. apply E_Skip.
   - intro H. inversion H. inversion H2. inversion H5. subst.
-    apply (E_Seq _ _ _ (x |-> aeval st 0; st)).
+    apply (E_Seq _ _ _ (x !-> aeval st 0; st)).
     + apply E_Ass. reflexivity.
-    + assert (Heq : (x |-> aeval st 0; st) = (x |-> aeval (x |-> aeval st 0; st) x; x |-> aeval st 0; st)).
+    + assert (Heq : (x !-> aeval st 0; st) = (x !-> aeval (x !-> aeval st 0; st) x; x !-> aeval st 0; st)).
       { apply functional_extensionality.
         intro x0. destruct (string_dec x x0).
-        * rewrite e. rewrite update_eq. rewrite update_eq.
-          simpl. rewrite update_eq. reflexivity.
-        * assert (Heq1 : (x |-> aeval (x |-> aeval st 0; st) x; x |-> aeval st 0; st) x0 = (x |-> aeval st 0; st) x0).
-          { apply update_neq. apply n. }
+        * rewrite e. rewrite t_update_eq. rewrite t_update_eq.
+          simpl. rewrite t_update_eq. reflexivity.
+        * assert (Heq1 : (x !-> aeval (x !-> aeval st 0; st) x; x !-> aeval st 0; st) x0 = (x !-> aeval st 0; st) x0).
+          { apply t_update_neq. apply n. }
           rewrite Heq1. reflexivity.
       }
-      assert (Heq1 : (x |-> aeval st 0; st) =[ x ::= x ]=> (x |-> aeval st 0; st) =
-                                                           (x |-> aeval st 0; st) =[ x ::= x ]=> (x |-> aeval (x |-> aeval st 0; st) x; x |-> aeval st 0; st)).
+      assert (Heq1 : (x !-> aeval st 0; st) =[ x ::= x ]=> (x !-> aeval st 0; st) =
+                                                           (x !-> aeval st 0; st) =[ x ::= x ]=> (x !-> aeval (x !-> aeval st 0; st) x; x !-> aeval st 0; st)).
       { rewrite <- Heq. reflexivity. }
       rewrite Heq1. apply E_Ass. reflexivity.
 Qed.
 
 Theorem assign_aequiv : forall (x : string) e,
-    Some 0 = None ->
     aequiv x e ->
     cequiv SKIP (x ::= e).
 Proof.
   unfold aequiv, cequiv. split.
   - intro H1. inversion H1. subst.
-    assert (Heq : (x |-> aeval st' e; st') = st').
+    assert (Heq : (x !-> aeval st' e; st') = st').
     { apply functional_extensionality.
       intro x0. destruct (string_dec x x0).
-      + rewrite <- H0. rewrite e0. rewrite update_eq.
-        simpl. destruct (st' x0).
-        * reflexivity.
-        * assumption.
-      + apply update_neq. apply n.
+      + rewrite e0. rewrite t_update_eq.
+        simpl. destruct (st' x0) eqn:E.
+        * rewrite <- H. subst. simpl. apply E. 
+        * rewrite <- H. subst. simpl. apply E. 
+      + apply t_update_neq. apply n.
     }
     assert (Heq1 : st' =[ x ::= e ]=> st' =
-                  st' =[ x ::= e ]=> (x |-> aeval st' e; st')
+                  st' =[ x ::= e ]=> (x !-> aeval st' e; st')
            ).
     { rewrite Heq. reflexivity. }
     rewrite Heq1. apply E_Ass. reflexivity.
   - intro H1. inversion H1. subst.
-    assert (Heq : (x |-> aeval st e; st) = st).
+    assert (Heq : (x !-> aeval st e; st) = st).
     { apply functional_extensionality.
       intro x0. destruct (string_dec x x0).
-      + rewrite <- H0. rewrite e0. rewrite update_eq.
-        simpl. destruct (st x0).
-        * reflexivity.
-        * assumption.
-      + apply update_neq. apply n.
+      + rewrite e0. rewrite t_update_eq.
+        simpl. destruct (st x0) eqn:E.
+        * rewrite <- H. subst. simpl. apply E. 
+        * rewrite <- H. subst. simpl. apply E. 
+      + apply t_update_neq. apply n.
     }
     rewrite Heq. apply E_Skip.
 Qed.
@@ -912,18 +911,18 @@ Theorem subst_inequiv : ~ subst_equiv_property.
 Proof.
   unfold subst_equiv_property. unfold not.
   intros. unfold cequiv in H.
-  destruct (H X Y (X + 1)%imp X%imp (X |-> 0) (Y |-> 1; X |-> 1; X |-> 0)).
+  destruct (H X Y (X + 1)%imp X%imp (X !-> 0) (Y !-> 1; X !-> 1; X !-> 0)).
   simpl in *.
-  assert (HTrue : (X |-> 0) =[ X ::= X + 1;; Y ::= X ]=> (Y |-> 1; X |-> 1; X |-> 0)).
-  { apply (E_Seq _ _ _ (X |-> 1; X |-> 0)).
+  assert (HTrue : (X !-> 0) =[ X ::= X + 1;; Y ::= X ]=> (Y !-> 1; X !-> 1; X !-> 0)).
+  { apply (E_Seq _ _ _ (X !-> 1; X !-> 0)).
     - apply E_Ass. reflexivity.
     - apply E_Ass. reflexivity.
   }
   apply H0 in HTrue. inversion HTrue. inversion H4. subst. simpl in H7.
   inversion H7. simpl in H6. subst.
-  assert (Heq : (Y |-> 2; X |-> 1; X |-> 0) Y = (Y |-> 1; X |-> 1; X |-> 0) Y).
+  assert (Heq : (Y !-> 2; X !-> 1; X !-> 0) Y = (Y !-> 1; X !-> 1; X !-> 0) Y).
   rewrite H8. reflexivity.
-  rewrite update_eq in Heq. rewrite update_eq in Heq. inversion Heq.
+  rewrite t_update_eq in Heq. rewrite t_update_eq in Heq. inversion Heq.
 Qed.
 
 Inductive var_not_used_in_aexp (x : string) : aexp -> Prop :=
@@ -944,11 +943,11 @@ Inductive var_not_used_in_aexp (x : string) : aexp -> Prop :=
 
 Lemma aeval_weakening : forall x st a ni,
     var_not_used_in_aexp x a ->
-    aeval (x |-> ni ; st) a = aeval st a.
+    aeval (x !-> ni ; st) a = aeval st a.
 Proof.
   intros x st a ni H. induction H.
   - reflexivity.
-  - apply (update_neq nat st y x ni) in H.
+  - apply (t_update_neq nat st x y ni) in H.
     simpl. rewrite H. reflexivity.
   - simpl. rewrite IHvar_not_used_in_aexp1.
     rewrite IHvar_not_used_in_aexp2.
@@ -1009,7 +1008,7 @@ Module Himp.
   | E_Skip : forall st, st =[ SKIP ]=> st
   | E_Ass : forall st a1 n x,
       aeval st a1 = n ->
-      st =[ x ::= a1 ]=> (x |-> n ; st)
+      st =[ x ::= a1 ]=> (x !-> n ; st)
   | E_Seq : forall c1 c2 st st' st'',
       st =[ c1 ]=> st' ->
       st' =[ c2 ]=> st'' ->
@@ -1031,16 +1030,16 @@ Module Himp.
       st' =[ WHILE b DO c END ]=> st'' ->
       st =[ WHILE b DO c END ]=> st''
   | E_Havoc : forall st x n,
-      st =[ HAVOC x ]=> ( x |-> n; st)
+      st =[ HAVOC x ]=> ( x !-> n; st)
 
   where "st =[ c ]=> st'" := (ceval c st st').
   Close Scope imp_scope.
 
-  Example havoc_example1 : empty_st =[ (HAVOC X)%imp ]=> (X |-> 0).
+  Example havoc_example1 : empty_st =[ (HAVOC X)%imp ]=> (X !-> 0).
   Proof. apply E_Havoc. Qed.
 
   Example havoc_example2 :
-    empty_st =[ (SKIP ;; HAVOC Z)%imp ]=> (Z |-> 42).
+    empty_st =[ (SKIP ;; HAVOC Z)%imp ]=> (Z !-> 42).
   Proof.
     eapply E_Seq.
     - apply E_Skip.
@@ -1063,23 +1062,23 @@ Module Himp.
     - intro H. inversion H. subst.
       inversion H2. subst.
       inversion H5. subst.
-      assert (HeqSt: (Y |-> n0; X |-> n; st) = (X |-> n; Y |-> n0; st)).
-      { apply (update_permute nat st Y X n0 n). unfold not.
+      assert (HeqSt: (Y !-> n0; X !-> n; st) = (X !-> n; Y !-> n0; st)).
+      { apply (t_update_permute nat st n0 n Y X). unfold not.
         intro H3. inversion H3.
       }
       rewrite HeqSt.
-      apply (E_Seq _ _ _ (Y |-> n0; st)).
+      apply (E_Seq _ _ _ (Y !-> n0; st)).
       + apply E_Havoc.
       + apply E_Havoc.
     - intro H. inversion H. subst.
       inversion H2. subst.
       inversion H5. subst.
-      assert (HeqSt: (X |-> n0; Y |-> n; st) = (Y |-> n; X |-> n0; st)).
-      { apply (update_permute nat st X Y n0 n). unfold not.
+      assert (HeqSt: (X !-> n0; Y !-> n; st) = (Y !-> n; X !-> n0; st)).
+      { apply (t_update_permute nat st n0 n X Y). unfold not.
         intro H3. inversion H3.
       }
       rewrite HeqSt.
-      apply (E_Seq _ _ _ (X |-> n0; st)).
+      apply (E_Seq _ _ _ (X !-> n0; st)).
       + apply E_Havoc.
       + apply E_Havoc.
   Qed.
@@ -1093,31 +1092,31 @@ Module Himp.
     cequiv ptwice pcopy \/ ~ cequiv ptwice pcopy.
   Proof.
     right. unfold not, ptwice, cequiv, pcopy.
-    intro H. destruct (H empty_st (Y |-> 1; X |-> 0)).
-    assert (H2: empty_st =[ (HAVOC X;; HAVOC Y)%imp ]=> (Y |-> 1; X |-> 0)).
-    { apply (E_Seq _ _ _ (X |-> 0)).
+    intro H. destruct (H empty_st (Y !-> 1; X !-> 0)).
+    assert (H2: empty_st =[ (HAVOC X;; HAVOC Y)%imp ]=> (Y !-> 1; X !-> 0)).
+    { apply (E_Seq _ _ _ (X !-> 0)).
       - apply E_Havoc.
       - apply E_Havoc.
     }
     apply H0 in H2. inversion H2. subst.
     inversion H8. subst.
     inversion H5. subst.
-    simpl in H9.
-    assert (Heq1 :  (Y |-> n; X |-> n; empty_st) Y = (Y |-> 1; X |-> 0) Y).
-    { rewrite H9. reflexivity. }
-    assert (Heq2 :  (Y |-> n; X |-> n; empty_st) X = (Y |-> 1; X |-> 0) X).
-    { rewrite H9. reflexivity. }
-    repeat rewrite update_eq in Heq1.
-    assert (Hneq : Y <> X).
-    { intro HXY. inversion HXY. }
-    assert (HeqSt1 : (Y |-> n; X |-> n; empty_st) X =
-                     (X |-> n; empty_st) X).
-    { apply update_neq. apply Hneq. }
-    assert (HeqSt2 : (Y |-> 1; X |-> 0) X = (X |-> 0) X).
-    { apply update_neq. apply Hneq. }
-    rewrite HeqSt1 in Heq2. rewrite HeqSt2 in Heq2.
-    repeat rewrite update_eq in Heq2.
-    rewrite Heq1 in Heq2. inversion Heq2.
+    simpl in H9. rewrite t_update_eq in H9.
+    assert (Hcontr: n = 1 /\ n = 0).
+    { split.
+      assert (Heq : (Y !-> n; X !-> n) Y = (Y !-> 1; X !-> 0) Y).
+      { rewrite H9. reflexivity. }
+      rewrite t_update_eq in Heq. rewrite t_update_eq in Heq.
+      apply Heq.
+      assert (Heq : (Y !-> n; X !-> n) X = (Y !-> 1; X !-> 0) X).
+      { rewrite H9. reflexivity. }
+      rewrite t_update_neq in Heq. rewrite t_update_eq in Heq.
+      rewrite t_update_neq in Heq. rewrite t_update_eq in Heq.
+      apply Heq.
+      intro HYX. inversion HYX.
+      intro HYX. inversion HYX.
+    }
+    destruct Hcontr. congruence.
   Qed.
 
   Definition p1 : com :=
@@ -1132,53 +1131,48 @@ Module Himp.
      END)%imp.
 
   Lemma p1_may_diverge : forall st st',
-      st X <> None ->
-      st X <> Some 0 ->
+      st X <> 0 ->
       ~ st =[ p1 ]=> st'.                                  
   Proof.
-    intros st st' H1 H2 H3.
-    unfold p1 in H3.
+    intros st st' H1 H2.
+    unfold p1 in H2.
     remember ((WHILE ~ X = 0 DO HAVOC Y;; X ::= X + 1 END)%imp) as
         while eqn:Heqwhile.
-    induction H3; try (inversion Heqwhile).
-    - rewrite H3 in H. simpl in H.
+    induction H2; try (inversion Heqwhile).
+    - rewrite H2 in H. simpl in H.
       rewrite negb_false_iff in H.
       rewrite eqb_eq in H.
-      destruct (st X).
-      + apply H2. rewrite H. reflexivity.
-      + apply H1. reflexivity.
+      congruence.
     - apply IHceval2.
-      + subst. inversion H3_. subst. inversion H4.
-        subst. inversion H7. subst.
-        rewrite update_eq. intro Hneq. inversion Hneq.
-      + subst. inversion H3_. subst. inversion H4.
-        subst. inversion H7. subst.
-        rewrite update_eq. intro Hneq.
-        simpl in Hneq. inversion Hneq. destruct ((Y |-> n; st) X).
-        * omega.
-        * omega.
-      + apply Heqwhile.
+      + subst. inversion H2_. subst. inversion H3.
+        subst. inversion H6. subst.
+        rewrite t_update_eq. simpl. rewrite t_update_neq. intro Hneq.
+        destruct (st X).
+        * contradiction.
+        * simpl in Hneq. inversion Hneq.
+        * intro HYX. inversion HYX.
+      + subst. inversion H2_. subst. inversion H3.
+        subst. inversion H6. subst.
+        reflexivity.
   Qed.
 
   Lemma p2_may_diverge : forall st st',
-      st X <> None ->
-      st X <> Some 0 ->
+      st X <> 0 ->
       ~ st =[ p2 ]=> st'.
   Proof.
-    intros st st' H1 H2 H3.
-    unfold p2 in H3.
+    intros st st' H1 H2.
+    unfold p2 in H2.
     remember (WHILE ~ X = 0 DO SKIP END)%imp as while eqn:Heqwhile.
-    induction H3; try (inversion Heqwhile).
-    - rewrite H3 in H. simpl in H.
+    induction H2; try (inversion Heqwhile).
+    - rewrite H2 in H. simpl in H.
       rewrite negb_false_iff in H.
       rewrite eqb_eq in H.
       destruct (st X).
-      + apply H2. rewrite H. reflexivity.
-      + apply H1. reflexivity.
+      + apply H1. reflexivity. 
+      + congruence. 
     - apply IHceval2.
-      + subst. inversion H3_. subst. assumption. 
-      + subst. inversion H3_. subst. assumption. 
-      + apply Heqwhile.
+      + subst. inversion H2_. subst. assumption. 
+      + subst. inversion H2_. subst. assumption. 
   Qed.
 
   Theorem p1_p2_equiv : cequiv p1 p2.
@@ -1194,7 +1188,10 @@ Module Himp.
         * subst. inversion H0. subst.
           inversion H4. subst. inversion H7. subst.
           simpl in H8. rewrite negb_false_iff in H8.
-          rewrite eqb_eq in H8. destruct ((Y |-> n; st) X); omega.
+          rewrite eqb_eq in H8.
+          rewrite t_update_eq in H8.
+          destruct ((Y !-> n; st) X).
+          inversion H8. inversion H8.
         * subst.
           remember (WHILE ~ X = 0 DO SKIP END)%imp as while1 eqn:Heqwhile1.
           induction H10; try inversion Heqwhile1.
@@ -1232,33 +1229,47 @@ Module Himp.
   Theorem p3_p4_inequiv : ~ cequiv p3 p4.
   Proof.
     unfold cequiv, p3, p4. intro H.
-    destruct (H empty_st (Z |-> 1;X |-> 0)).
-    assert (Heq: empty_st =[ (X ::= 0;; Z ::= 1)%imp ]=> (Z |-> 1; X |-> 0)).
-    { eapply E_Seq.
-      - apply E_Ass. simpl. reflexivity.
-      - apply E_Ass. reflexivity.
+    destruct (H (X !-> 1) (Z !-> 2;X !-> 0; X !-> 1)).
+    assert (HFalse : (X !-> 1) =[ (Z ::= 1;; WHILE ~ X = 0 DO HAVOC X;; HAVOC Z END)%imp
+                                ]=> (Z !-> 2; X !-> 0; X !-> 1)).
+    { eapply E_Seq. apply E_Ass. reflexivity. simpl. eapply E_WhileTrue. reflexivity. eapply E_Seq. apply (E_Havoc _ _ 0).
+      apply (E_Havoc _ _ 2).
+      assert (Heq : (Z !-> 2; X !-> 0; Z !-> 1; X !-> 1)
+                    = (Z !-> 2; X !-> 0; X !-> 1)).
+      { apply functional_extensionality. intro x.
+        destruct (string_dec Z x).
+        - rewrite e. repeat rewrite t_update_eq. reflexivity.
+        - assert (Heq1 :  (Z !-> 2; X !-> 0; Z !-> 1; X !-> 1) x =
+                          (X !-> 0; Z !-> 1; X !-> 1) x).
+          { apply t_update_neq. apply n. }
+          rewrite Heq1. 
+          assert (Heq2 : (Z !-> 2; X !-> 0; X !-> 1) x =
+                 (X !-> 0; X !-> 1) x).
+
+          { apply t_update_neq. apply n. }
+          rewrite Heq2. 
+          destruct (string_dec X x).
+          + rewrite e. repeat rewrite t_update_eq. reflexivity.
+          + assert (Heq3 : (X !-> 0; Z !-> 1; X !-> 1) x
+                           = (Z !-> 1; X !-> 1) x).
+            { apply t_update_neq. apply n0. }
+            rewrite Heq3.
+            assert (Heq4 : (X !-> 0; X !-> 1) x = (X !-> 1) x).
+            { apply t_update_neq. apply n0. }
+            rewrite Heq4.
+            apply t_update_neq. apply n.
+      }
+      rewrite Heq. apply E_WhileFalse. reflexivity.
     }
-    apply H1 in Heq.
-    inversion Heq. subst.
+    apply H0 in HFalse.
+    inversion HFalse. subst.
     inversion H4. subst.
-    inversion H7.
-    - subst.
-      assert (HeqState : (Z |-> 1; empty_st) X = (Z |-> 1; X |-> 0) X).
-      { rewrite H8. reflexivity. }
-      assert (HeqState1 : (Z |-> 1; empty_st) X = empty_st X).
-      { apply update_neq. intro HZX. inversion HZX. }
-      assert (HeqState2 : (Z |-> 1; X |-> 0) X = (X |-> 0) X).
-      { apply update_neq. intro HZX. inversion HZX. }
-      rewrite HeqState1 in HeqState.
-      rewrite HeqState2 in HeqState.
-      rewrite (apply_empty nat) in HeqState.
-      rewrite update_eq in HeqState.
-      inversion HeqState.
-    - subst.
-      inversion H6. subst.
-      inversion H8. subst.
-      inversion H12. subst.
-      simpl in H5. inversion H5.
+    inversion H7. subst. simpl in H8.
+    assert (Heq : (Z !-> 1; X !-> 0; X !-> 1) Z = (Z !-> 2; X !-> 0; X !-> 1) Z).
+    { rewrite H8. reflexivity. }
+    repeat rewrite t_update_eq in Heq.
+    inversion Heq. 
+
   Qed.
 
   Definition p5 : com :=
@@ -1276,69 +1287,49 @@ Module Himp.
     - remember (WHILE ~ X = 1 DO HAVOC X END)%imp as while eqn:Heqwhile.
       intro H. induction H; try inversion Heqwhile.
       + subst. simpl in H. rewrite negb_false_iff in H.
-        rewrite eqb_eq in H. destruct (st X) eqn:Heq.
-        subst. 
-        assert (Heq1 : st = (X |-> 1; st)).
+        rewrite eqb_eq in H.
+        assert (Heq1 : st = (X !-> 1; st)).
         { apply functional_extensionality.
           intro x. destruct (string_dec X x).
-          * rewrite <- e. rewrite update_eq.
-            apply Heq.
-          * apply (update_neq nat st x X 1) in n. symmetry. apply n.
+          * rewrite <- e. rewrite t_update_eq. apply H.
+          * apply (t_update_neq nat st X x 1) in n. symmetry. apply n.
         }
         assert (Heq2 : st =[ (X ::= 1)%imp ]=> st <->
-                       st =[ (X ::= 1)%imp ]=> (X |-> 1; st)
+                       st =[ (X ::= 1)%imp ]=> (X !-> 1; st)
                ).
         { rewrite <- Heq1. reflexivity. }
         rewrite Heq2. apply E_Ass. reflexivity.
-        inversion H.
       + subst. simpl in H. rewrite negb_true_iff in H.
         rewrite eqb_neq in H.
         inversion H0. subst.
         apply IHceval2 in Heqwhile. inversion Heqwhile.
         subst. simpl.
-        assert (Heq: (X |-> 1; X |-> n; st) = (X |-> 1; st)).
+        assert (Heq: (X !-> 1; X !-> n; st) = (X !-> 1; st)).
         { apply functional_extensionality.
-          intro x. rewrite update_shadow. reflexivity.
+          intro x. rewrite t_update_shadow. reflexivity.
         }
         rewrite Heq. apply E_Ass. reflexivity.
-    - intro H. inversion H. subst. simpl.
+    - intro H. inversion H. subst. simpl in *.
       destruct (st X) eqn: HstX.
-      + destruct n as [| n'].
-        * eapply E_WhileTrue.
-          { simpl. rewrite HstX. rewrite negb_true_iff.
-            rewrite eqb_neq. omega.
-          }
-          { apply E_Havoc. }
-          { apply E_WhileFalse.
-            simpl. reflexivity.
-          }
-        * destruct n' as [| n''].
-          { assert (Heq : (X |-> 1; st) = st).
-            { apply functional_extensionality.
-              intro x. destruct (string_dec X x).
-              { rewrite <- e. rewrite update_eq.
-                symmetry. apply HstX.
-              }
-              { apply (update_neq nat st x X 1) in n. apply n. }
-            }
-            rewrite Heq.
-            eapply E_WhileFalse. simpl.
-            rewrite HstX. rewrite negb_false_iff. rewrite eqb_eq.
-            reflexivity.
-          }
-          { eapply E_WhileTrue.
-            { simpl. rewrite HstX.
-              rewrite negb_true_iff.
-              rewrite eqb_neq. omega.
-            }
-            { apply E_Havoc. }
-            { apply E_WhileFalse. simpl. reflexivity. }
-          }
       + eapply E_WhileTrue.
-        * simpl. rewrite HstX. rewrite negb_true_iff.
-          rewrite eqb_neq. omega.
+        * simpl. rewrite HstX. reflexivity.
         * apply E_Havoc.
-        * apply E_WhileFalse. reflexivity.
+        * apply E_WhileFalse. simpl. reflexivity.
+      + destruct n as [| n'].
+        * assert (Heq : (X !-> 1; st) = st).
+          { apply functional_extensionality.
+            intro x. destruct (string_dec X x).
+            { rewrite <- e. rewrite t_update_eq.
+              symmetry. apply HstX.
+            }
+            { apply (t_update_neq nat st X x 1) in n. apply n. }
+          }
+          rewrite Heq. apply E_WhileFalse. simpl. rewrite HstX.
+          reflexivity.
+        * eapply E_WhileTrue.
+          { simpl. rewrite HstX. reflexivity. }
+          { apply E_Havoc. }
+          { apply E_WhileFalse. reflexivity. }
   Qed.
 
 End Himp.
@@ -1360,12 +1351,12 @@ Proof.
     eapply E_Seq.
     + apply E_Ass. reflexivity.
     + assert (Heq :
-      (l2 |-> aeval (l1 |-> aeval st a1; st) a2; l1 |-> aeval st a1; st)
+      (l2 !-> aeval (l1 !-> aeval st a1; st) a2; l1 !-> aeval st a1; st)
       =
-      (l1 |-> aeval st a1; l2 |-> aeval (l1 |-> aeval st a1; st) a2; st)).
-      { apply update_permute. apply H1. }
+      (l1 !-> aeval st a1; l2 !-> aeval (l1 !-> aeval st a1; st) a2; st)).
+      { apply t_update_permute. apply H1. }
       rewrite Heq.
-      assert (Heq1 : aeval st a2 = aeval (l1 |-> aeval st a1; st) a2).
+      assert (Heq1 : aeval st a2 = aeval (l1 !-> aeval st a1; st) a2).
       { symmetry. apply aeval_weakening. apply H2. }
       rewrite <- Heq1. apply E_Ass.
       apply aeval_weakening. apply H3.
@@ -1376,12 +1367,12 @@ Proof.
     eapply E_Seq.
     + apply E_Ass. reflexivity.
     + assert (Heq :
-      (l1 |-> aeval (l2 |-> aeval st a2; st) a1; l2 |-> aeval st a2; st)
+      (l1 !-> aeval (l2 !-> aeval st a2; st) a1; l2 !-> aeval st a2; st)
       =
-      (l2 |-> aeval st a2; l1 |-> aeval (l2 |-> aeval st a2; st) a1; st)).
-      { apply update_permute. auto. }
+      (l2 !-> aeval st a2; l1 !-> aeval (l2 !-> aeval st a2; st) a1; st)).
+      { apply t_update_permute. auto. }
       rewrite Heq.
-      assert (Heq1 : aeval st a1 = aeval (l2 |-> aeval st a2; st) a1).
+      assert (Heq1 : aeval st a1 = aeval (l2 !-> aeval st a2; st) a1).
       { symmetry. apply aeval_weakening. apply H3. }
       rewrite <- Heq1. apply E_Ass.
       apply aeval_weakening. apply H2.
@@ -1400,24 +1391,24 @@ Theorem c3_c4_different : ~capprox c3 c4 /\ ~ capprox c4 c3.
 Proof.
   split.
   - unfold not, capprox. intros.
-    assert (Hf : empty_st =[ c3 ]=> (X |-> 1) -> empty_st =[ c4 ]=> (X |-> 1)).
+    assert (Hf : empty_st =[ c3 ]=> (X !-> 1) -> empty_st =[ c4 ]=> (X !-> 1)).
     { apply H. }
-    assert (Hf1 : empty_st =[ c4 ]=> (X |-> 1)).
+    assert (Hf1 : empty_st =[ c4 ]=> (X !-> 1)).
     { apply Hf. apply E_Ass. reflexivity. }
     inversion Hf1. simpl in H3. subst. 
-    assert (Heq : (X |-> 2; empty_st) X = (X |-> 1) X).
+    assert (Heq : (X !-> 2; empty_st) X = (X !-> 1) X).
     { rewrite H4. reflexivity. }
-    rewrite update_eq in Heq. rewrite update_eq in Heq.
+    rewrite t_update_eq in Heq. rewrite t_update_eq in Heq.
     inversion Heq.
   - unfold not, capprox. intros.
-    assert (Hf : empty_st =[ c4 ]=> (X |-> 2) -> empty_st =[ c3 ]=> (X |-> 2)).
+    assert (Hf : empty_st =[ c4 ]=> (X !-> 2) -> empty_st =[ c3 ]=> (X !-> 2)).
     { apply H. }
-    assert (Hf1 : empty_st =[ c3 ]=> (X |-> 2)).
+    assert (Hf1 : empty_st =[ c3 ]=> (X !-> 2)).
     { apply Hf. apply E_Ass. reflexivity. }
     inversion Hf1. simpl in H3. subst. 
-    assert (Heq : (X |-> 1; empty_st) X = (X |-> 2) X).
+    assert (Heq : (X !-> 1; empty_st) X = (X !-> 2) X).
     { rewrite H4. reflexivity. }
-    rewrite update_eq in Heq. rewrite update_eq in Heq.
+    rewrite t_update_eq in Heq. rewrite t_update_eq in Heq.
     inversion Heq.
 Qed.
 

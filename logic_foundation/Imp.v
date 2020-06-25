@@ -301,7 +301,7 @@ Module aevalR_extended.
   
 End aevalR_extended.
 
-Definition state := partial_map nat.
+Definition state := total_map nat.
 
 Inductive aexp : Type :=
 | ANum (n : nat)
@@ -372,7 +372,7 @@ Unset Printing Coercions.
 Fixpoint aeval (st : state) (a : aexp) : nat :=
   match a with
   | ANum n => n
-  | AId x => match st x with None => 0 | Some n => n end
+  | AId x => st x
   | APlus a1 a2 => (aeval st a1) + (aeval st a2)
   | AMinus a1 a2 => (aeval st a1) - (aeval st a2)
   | AMult a1 a2 => (aeval st a1) * (aeval st a2)
@@ -388,10 +388,14 @@ Fixpoint beval (st : state) (b : bexp) : bool :=
   | BAnd b1 b2 => andb (beval st b1) (beval st b2)
   end.
 
-Example aexp1 : aeval (X |-> 5) ( 3 + (X * 2))%imp = 13.
+Definition empty_st := (_ !-> 0).
+
+Notation "a '!->' x" := (t_update empty_st a x) (at level 100).
+
+Example aexp1 : aeval (X !-> 5) ( 3 + (X * 2))%imp = 13.
 Proof. reflexivity. Qed.
 
-Example bexp1 : beval (X |-> 5) (true && ~(X <= 4))%imp = true.
+Example bexp1 : beval (X !-> 5) (true && ~(X <= 4))%imp = true.
 Proof. reflexivity. Qed.
 
 Inductive com : Type :=
@@ -463,7 +467,7 @@ Inductive ceval : com -> state -> state -> Prop :=
 | E_Skip : forall st, st =[ SKIP ]=> st
 | E_Ass : forall st a1 n x,
     aeval st a1 = n ->
-    st =[ x ::= a1 ]=> (x |->n ; st)
+    st =[ x ::= a1 ]=> (x !-> n ; st)
 | E_Seq : forall c1 c2 st st' st'',
     st =[ c1 ]=> st' ->
     st' =[ c2 ]=> st'' ->
@@ -486,8 +490,6 @@ Inductive ceval : com -> state -> state -> Prop :=
     st =[ WHILE b DO c END]=> st''
 where "st =[ c ]=> st'" := (ceval c st st').
 
-Definition empty_st := @empty nat.
-
 Example ceval_example1 :
   empty_st =[
     X ::= 2;;
@@ -495,9 +497,9 @@ Example ceval_example1 :
         THEN Y ::= 3
         ELSE Z ::= 4
       FI
-  ]=> (Z |-> 4; X |-> 2).
+  ]=> (Z !-> 4; X !-> 2).
 Proof.
-  apply (E_Seq _ _ _ (X |-> 2)).
+  apply (E_Seq _ _ _ (X !-> 2)).
   - apply E_Ass. reflexivity.
   - apply E_IfFalse.
     + reflexivity.
@@ -507,11 +509,11 @@ Qed.
 Example ceval_example2 :
   empty_st =[
     X ::= 0;; Y ::= 1;; Z ::= 2
-  ]=> (Z |-> 2; Y |-> 1; X |-> 0).
+  ]=> (Z !-> 2; Y !-> 1; X !-> 0).
 Proof.
-  apply (E_Seq _ _ _ (X |-> 0)).
+  apply (E_Seq _ _ _ (X !-> 0)).
   - apply E_Ass. reflexivity.
-  - apply (E_Seq _ _ _ (Y |-> 1; X |-> 0)); apply E_Ass; reflexivity.
+  - apply (E_Seq _ _ _ (Y !-> 1; X !-> 0)); apply E_Ass; reflexivity.
 Qed.
 
 Definition pup_to_n : com :=
@@ -522,21 +524,21 @@ Definition pup_to_n : com :=
   END.
 
 Theorem pup_to_2_ceval :
-  (X |-> 2) =[
+  (X !-> 2) =[
     pup_to_n
-  ]=> (X |-> 0; Y |-> 3; X |-> 1; Y |-> 2; Y |-> 0; X |-> 2).
+  ]=> (X !-> 0; Y !-> 3; X !-> 1; Y !-> 2; Y !-> 0; X !-> 2).
 Proof.
   unfold pup_to_n.
-  apply (E_Seq _ _ _ (Y |-> 0; X |-> 2)).
+  apply (E_Seq _ _ _ (Y !-> 0; X !-> 2)).
   - apply E_Ass; reflexivity.
-  - apply E_WhileTrue with (X |-> 1; Y |-> 2; Y |-> 0; X |-> 2).
+  - apply E_WhileTrue with (X !-> 1; Y !-> 2; Y !-> 0; X !-> 2).
     + reflexivity.
-    + apply E_Seq with (Y |-> 2; Y |-> 0; X |-> 2).
+    + apply E_Seq with (Y !-> 2; Y !-> 0; X !-> 2).
       * apply E_Ass; reflexivity.
       * apply E_Ass; reflexivity.
-    + apply E_WhileTrue with (X |-> 0; Y |-> 3; X |-> 1; Y |-> 2; Y |-> 0; X |-> 2).
+    + apply E_WhileTrue with (X !-> 0; Y !-> 3; X !-> 1; Y !-> 2; Y !-> 0; X !-> 2).
       * reflexivity.
-      * apply E_Seq with (Y |-> 3; X |-> 1; Y |-> 2; Y |-> 0; X |-> 2).
+      * apply E_Seq with (Y !-> 3; X !-> 1; Y !-> 2; Y !-> 0; X !-> 2).
         { apply E_Ass; reflexivity. }
         { apply E_Ass; reflexivity. }
       * apply E_WhileFalse. reflexivity.
@@ -571,24 +573,24 @@ Proof.
 Qed.
 
 Theorem plus2_spec : forall st n st',
-    st X = Some n ->
+    st X = n ->
     st =[ plus2 ]=> st' ->
-    st' X = Some (n + 2).
+    st' X = n + 2.
 Proof.
   intros st n st' H1 H2. inversion H2.
   simpl in H5. rewrite H1 in H5. subst.
-  apply update_eq.
+  apply t_update_eq.
 Qed.
 
 Theorem XtimesYinZ_spec : forall st m n st',
-    st X = Some m ->
-    st Y = Some n ->
+    st X = m ->
+    st Y = n ->
     st =[ XtimesYinZ ]=> st' ->
-    st' Z = Some (m * n).
+    st' Z = m * n.
 Proof.
   intros st m n st' H1 H2 H3.
   inversion H3. simpl in H6. rewrite H1 in H6. rewrite H2 in H6.
-  subst. apply update_eq.
+  subst. apply t_update_eq.
 Qed.
 
 Theorem loop_never_stops : forall st st',
@@ -688,10 +690,7 @@ Fixpoint s_execute (st : state) (stack : list nat) (prog : list sinstr)
   | hd :: tl =>
     match hd with
     | SPush n => s_execute st (n :: stack) tl
-    | SLoad x => match st x with
-                 | None => s_execute st (0 :: stack) tl
-                 | Some n => s_execute st (n :: stack) tl
-                 end
+    | SLoad x => s_execute st (st x :: stack) tl
     | SPlus => match stack with
                | m :: n :: stack' =>
                  s_execute st ((n + m) :: stack') tl
@@ -715,7 +714,7 @@ Example s_execute1 :
 Proof. reflexivity. Qed.
 
 Example s_execute2 :
-  s_execute (X |-> 3) [3; 4] [SPush 4; SLoad X; SMult; SPlus]
+  s_execute (X !-> 3) [3; 4] [SPush 4; SLoad X; SMult; SPlus]
   = [15; 4].
 Proof. reflexivity. Qed.
 
@@ -840,7 +839,7 @@ Module BreakImp.
   | E_Break : forall st, st =[ BREAK ]=> st / SBreak
   | E_Ass : forall st x a n,
       aeval st a = n ->
-      st =[ x ::= a ]=> (x |-> n; st) / SContinue
+      st =[ x ::= a ]=> (x !-> n; st) / SContinue
   | E_Seq_Continue : forall st st' st'' r c1 c2,
       st =[ c1 ]=> st' / SContinue ->
       st' =[ c2 ]=> st'' / r ->
@@ -1004,7 +1003,7 @@ Module ForLoopImp.
   | E_Break : forall st, st =[ BREAK ]=> st / SBreak
   | E_Ass : forall st x a n,
       aeval st a = n ->
-      st =[ x ::= a ]=> (x |-> n; st) / SContinue
+      st =[ x ::= a ]=> (x !-> n; st) / SContinue
   | E_Seq_Continue : forall st st' st'' r c1 c2,
       st =[ c1 ]=> st' / SContinue ->
       st' =[ c2 ]=> st'' / r ->
