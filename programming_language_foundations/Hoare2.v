@@ -215,7 +215,7 @@ Example dec1 :=
   WHILE true DO {{ fun st => True }} SKIP {{ fun st => True }} END
   {{ fun st => True }}.
 
-Set Printing All.
+(* Set Printing All.*)
 
 Example dec_while : decorated :=
   {{ fun st => True }}
@@ -269,19 +269,16 @@ Definition dec_correct (dec : decorated) :=
 
 Fixpoint verification_conditions (P : Assertion) (d : dcom) : Prop :=
   match d with
-  | DCSkip Q =>
-    (P ->> Q)
-  | DCSeq d1 d2 =>
-    verification_conditions P d1
-    /\ verification_conditions (post d1) d2
-  | DCAsgn X a Q =>
-    (P ->> Q [X |-> a])
+  | DCSkip Q => (P ->> Q)
+  | DCSeq d1 d2 => verification_conditions P d1 /\
+                   verification_conditions (post d1) d2
+  | DCAsgn X a Q => (P ->> Q [X |-> a])
   | DCIf b P1 d1 P2 d2 Q =>
     ((fun st => P st /\ bassn b st) ->> P1)
-      /\ ((fun st => P st /\ ~(bassn b st)) ->> P2)
-      /\ (post d1 ->> Q) /\ (post d2 ->> Q)
-      /\ verification_conditions P1 d1
-      /\ verification_conditions P2 d2
+    /\ ((fun st => P st /\ ~(bassn b st)) ->> P2)
+    /\ (post d1 ->> Q) /\ (post d2 ->> Q)
+    /\ verification_conditions P1 d1
+    /\ verification_conditions P2 d2
   | DCWhile b Pbody d Ppost =>
     (P ->> post d)
     /\ ((fun st => post d st /\ bassn b st) ->> Pbody)
@@ -292,4 +289,286 @@ Fixpoint verification_conditions (P : Assertion) (d : dcom) : Prop :=
   | DCPost d Q =>
     verification_conditions P d /\ (post d ->> Q)
   end.
+
+Theorem verification_correct : forall d P,
+    verification_conditions P d -> {{ P }} (extract d) {{ post d }}.
+Proof.
+  intros d. induction d.
+  - intros P H. simpl in *.
+    eapply hoare_consequence_pre.
+    + apply hoare_skip.
+    + apply H.
+  - intros P H. simpl in *. destruct H as [H1 H2].
+    eapply hoare_seq.
+    + apply IHd2. apply H2.
+    + apply IHd1. apply H1.
+  - intros P H. simpl in *.
+    eapply hoare_consequence_pre.
+    + apply hoare_asgn.
+    + apply H.
+  - intros P H. simpl in *.
+    destruct H as [H1 [H2 [H3 [H4 [H5 H6]]]]].
+    eapply hoare_consequence_pre.
+    + apply hoare_if. 
+      * unfold hoare_triple.
+        intros st st' H7 [H8 H9].
+        unfold assert_implies in H3.
+        apply H3. unfold hoare_triple in IHd1.
+        eapply IHd1.
+        { apply H5. }
+        { apply H7. }
+        { unfold assert_implies in H1. apply H1. split; eassumption. }
+      * unfold hoare_triple.
+        intros st st' H7 [H8 H9].
+        unfold assert_implies in H4.
+        apply H4. unfold hoare_triple in IHd2.
+        eapply IHd2.
+        { apply H6. }
+        { apply H7. }
+        { unfold assert_implies in H2. apply H2. split; eassumption. }
+    + unfold assert_implies. auto.
+  - intros P H.
+    simpl in *.
+    destruct H as [H1 [H2 [H3 H4]]].
+    apply IHd in H4.
+    apply (hoare_consequence_pre _ (post d)).
+    + eapply hoare_consequence_post.
+      * apply hoare_while.
+        eapply hoare_consequence_pre.
+        { apply H4. }
+        { apply H2. }
+      * apply H3.
+    + apply H1.
+  - intros P H.
+    simpl in *.
+    destruct H as [H1 H2].
+    eapply hoare_consequence_pre.
+    + apply (IHd _ H2).
+    + apply H1.
+  - intros P H.
+    simpl in *.
+    destruct H as [H1 H2].
+    eapply hoare_consequence_post.
+    + apply (IHd _ H1).
+    + apply H2.
+Qed.
+
+Definition verification_conditions_dec (dec : decorated) : Prop :=
+  match dec with
+  | Decorated P d => verification_conditions P d
+  end.
+
+Lemma verification_correct_dec : forall dec,
+    verification_conditions_dec dec -> dec_correct dec.
+Proof.
+  intros dec.
+  destruct dec.
+  unfold dec_correct.
+  simpl in *.
+  apply verification_correct.
+Qed.
+
+Eval simpl in (verification_conditions_dec dec_while).
+
+Tactic Notation "verify" :=
+  apply verification_correct;
+  repeat split;
+  simpl; unfold assert_implies;
+  unfold bassn in *; unfold beval in *; unfold aeval in *;
+  unfold assn_sub; intros;
+  repeat rewrite t_update_eq;
+  repeat (rewrite t_update_neq; [| (intro X; inversion X)]);
+  simpl in *;
+  repeat match goal with [H : _ /\ _ |- _] => destruct H end;
+  repeat rewrite not_true_iff_false in *;
+  repeat rewrite not_false_iff_true in *;
+  repeat rewrite negb_true_iff in *;
+  repeat rewrite negb_false_iff in *;
+  repeat rewrite eqb_eq in *;
+  repeat rewrite eqb_neq in *;
+  repeat rewrite leb_iff in *;
+  repeat rewrite leb_iff_conv in *;
+  try subst;
+  repeat
+    match goal with
+      [st : state |- _ ] =>
+      match goal with
+        [H : st _ = _ |- _] => rewrite -> H in *; clear H
+      | [H : _ = st _ |- _] => rewrite <- H in *; clear H
+      end
+    end;
+  try eauto; try omega.
+
+Theorem dec_while_correct :
+  dec_correct dec_while.
+Proof. verify. Qed.
+
+Example subtract_slowly_dec (m : nat) (p : nat) : decorated :=
+    {{ fun st => st X = m /\ st Z = p }} ->>
+    {{ fun st => st Z - st X = p - m }}
+  WHILE ~(X = 0)
+  DO {{ fun st => st Z - st X = p - m /\ st X <> 0 }} ->>
+       {{ fun st => (st Z - 1) - (st X - 1) = p - m }}
+     Z ::= Z - 1
+       {{ fun st => st Z - (st X - 1) = p - m }} ;;
+     X ::= X - 1
+       {{ fun st => st Z - st X = p - m }}
+  END
+    {{ fun st => st Z - st X = p - m /\ st X = 0 }} ->>
+    {{ fun st => st Z = p - m }}.
+
+Theorem subtract_slowly_dec_correct : forall m p,
+    dec_correct (subtract_slowly_dec m p).
+Proof. intros m p. verify. Qed.
+
+Definition swap : com :=
+  X ::= X + Y;;
+  Y ::= X - Y;;
+  X ::= X - Y.
+
+Definition swap_dec m n : decorated :=
+  {{fun st => st X = m /\ st Y = n}} ->>
+  {{fun st => (st X + st Y) - (st X + st Y - st Y) = n /\ (st X + st Y) - st Y = m}}
+  X ::= X + Y
+  {{fun st => st X - (st X - st Y) = n /\ st X - st Y = m}};;
+  Y ::= X - Y
+  {{fun st => st X - st Y = n /\ st Y = m}};;
+  X ::= X - Y
+  {{fun st => st X = n /\ st Y = m}}.
+
+Theorem swap_correct : forall m n,
+    dec_correct (swap_dec m n).
+Proof. intros m n. verify. Qed.
+
+Definition if_minus_plus_com :=
+  (TEST X <= Y
+    THEN Z ::= Y - X
+    ELSE Y ::= X + Z
+   FI)%imp.
+
+Definition if_minus_plus_dec :=
+  {{fun st => True}}
+  TEST X <= Y THEN
+      {{ fun st => True /\ st X <= st Y }} ->>
+      {{ fun st => st Y = st X + (st Y - st X) }}
+    Z ::= Y - X
+      {{ fun st => st Y = st X + st Z }}
+  ELSE
+      {{ fun st => True /\ ~(st X <= st Y) }} ->>
+      {{ fun st => st X + st Z = st X + st Z }}
+    Y ::= X + Z
+      {{ fun st => st Y = st X + st Z }}
+  FI
+  {{fun st => st Y = st X + st Z}}.
+
+Theorem if_minus_plus_correct :
+  dec_correct if_minus_plus_dec.
+Proof. verify. Qed.
+
+Definition if_minus_dec :=
+  {{fun st => True}}
+  TEST X <= Y THEN
+      {{fun st => True /\ st X <= st Y }} ->>
+      {{fun st => (st Y - st X) + st X = st Y
+               \/ (st Y - st X) + st Y = st X}}
+    Z ::= Y - X
+      {{fun st => st Z + st X = st Y \/ st Z + st Y = st X}}
+  ELSE
+      {{fun st => True /\ ~(st X <= st Y) }} ->>
+      {{fun st => (st X - st Y) + st X = st Y
+               \/ (st X - st Y) + st Y = st X}}
+    Z ::= X - Y
+      {{fun st => st Z + st X = st Y \/ st Z + st Y = st X}}
+  FI
+    {{fun st => st Z + st X = st Y \/ st Z + st Y = st X}}.
+
+Theorem if_minus_correct :
+  dec_correct if_minus_dec.
+Proof. verify. Qed.
+
+Definition div_mod_dec (a b : nat) : decorated :=
+  {{ fun st => True }} ->>
+  {{ fun st => b * 0 + a = a }}
+  X ::= a
+  {{ fun st => b * 0 + st X = a }};;
+  Y ::= 0
+  {{ fun st => b * st Y + st X = a }};;
+  WHILE b <= X DO
+    {{ fun st => b * st Y + st X = a /\ b <= st X }} ->>
+    {{ fun st => b * (st Y + 1) + (st X - b) = a }}
+    X ::= X - b
+    {{ fun st => b * (st Y + 1) + st X = a }};;
+    Y ::= Y + 1
+    {{ fun st => b * st Y + st X = a }}
+  END
+  {{ fun st => b * st Y + st X = a /\ ~(b <= st X) }} ->>
+  {{ fun st => b * st Y + st X = a /\ (st X < b) }}.
+
+Theorem div_mod_dec_correct : forall a b,
+  dec_correct (div_mod_dec a b).
+Proof. intros a b. verify.
+  rewrite mult_plus_distr_l. omega.
+Qed.
+
+Definition find_parity : com :=
+  WHILE 2 <= X DO
+     X ::= X - 2
+  END.
+
+Inductive ev : nat -> Prop :=
+| ev_O : ev 0
+| ev_SS (n : nat) : ev n -> ev (S (S n)).
+
+Definition find_parity_dec m : decorated :=
+  {{fun st => st X = m}} ->>
+  {{fun st => ev m -> ev (st X)}}
+  WHILE 2 <= X DO
+    {{fun st => ev m -> ev (st X) /\ 2 <= st X}} ->>
+    {{fun st => ev m -> ev (st X - 2)}}
+    X ::= X - 2
+    {{fun st => ev m -> ev (st X)}}
+  END
+  {{fun st => ev m -> ev (st X) /\ st X < 2}} ->>              
+  {{fun st => ev m -> ev (st X)}}.
+
+Theorem find_parity_correct : forall m,
+  dec_correct (find_parity_dec m).
+Proof.
+  intro m. verify.
+  - destruct (st X).
+    + inversion H1.
+    + apply H in H0.
+      inversion H0. omega.
+  - destruct (st X).
+    + omega.
+    + destruct n.
+      * omega.
+      * inversion H1.
+  - apply H in H0.
+    destruct H0 as [H1 H2].
+    inversion H1.
+    + rewrite <- H3 in H2. inversion H2.
+    + simpl. rewrite sub_0_r. apply H3.
+  - apply H. apply H0.
+Qed.
+
+Definition sqrt_dec m : decorated :=
+    {{ fun st => st X = m }} ->>
+    {{ fun st => st X = m /\ 0 * 0 <= m }}
+  Z ::= 0
+    {{ fun st => st X = m /\ st Z * st Z <= m }};;
+  WHILE (Z+1)*(Z+1) <= X DO
+      {{ fun st => (st X = m /\ st Z*st Z <= m)
+                   /\ (st Z + 1)*(st Z + 1) <= st X }} ->>
+      {{ fun st => st X = m /\ (st Z+1)*(st Z+1) <= m }}
+    Z ::= Z + 1
+      {{ fun st => st X = m /\ st Z*st Z <= m }}
+  END
+    {{ fun st => (st X = m /\ st Z*st Z <= m)
+                   /\ ~((st Z + 1)*(st Z + 1) <= st X) }} ->>
+    {{ fun st => st Z*st Z <= m /\  m < (st Z+1)*(st Z+1) }}.
+
+Theorem sqrt_correct : forall m,
+  dec_correct (sqrt_dec m).
+Proof. intro m. verify. Qed.
 
