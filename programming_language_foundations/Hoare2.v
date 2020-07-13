@@ -606,3 +606,86 @@ Theorem two_loops_correct : forall a b c,
     dec_correct (two_loops_dec a b c).
 Proof. intros a b c. verify. Qed.
 
+Fixpoint pow2 n :=
+  match n with
+  | 0 => 1
+  | S n' => 2 * (pow2 n')
+  end.
+
+Definition dpow2_down (n : nat) :=
+  {{ fun st => True }} ->>
+  {{ fun st => 1 = (pow2 (0 + 1))-1 /\ 1 = pow2 0 }}
+  X ::= 0
+  {{ fun st => 1 = (pow2 (0 + 1))-1 /\ 1 = pow2 (st X) }};;
+  Y ::= 1
+  {{ fun st => st Y = (pow2 (st X + 1))-1 /\ 1 = pow2 (st X) }};;
+  Z ::= 1
+  {{ fun st => st Y = (pow2 (st X + 1))-1 /\ st Z = pow2 (st X) }};;
+  WHILE ~(X = n) DO
+    {{ fun st => (st Y = (pow2 (st X + 1))-1 /\ st Z = pow2 (st X))
+                 /\ st X <> n }} ->>
+    {{ fun st => st Y + 2 * st Z = (pow2 (st X + 2))-1
+                 /\ 2 * st Z = pow2 (st X + 1) }}
+    Z ::= 2 * Z
+    {{ fun st => st Y + st Z = (pow2 (st X + 2))-1
+                 /\ st Z = pow2 (st X + 1) }};;
+    Y ::= Y + Z
+    {{ fun st => st Y = (pow2 (st X + 2))-1
+                 /\ st Z = pow2 (st X + 1) }};;
+    X ::= X + 1
+    {{ fun st => st Y = (pow2 (st X + 1))-1
+                 /\ st Z = pow2 (st X) }}
+  END
+  {{ fun st => (st Y = (pow2 (st X + 1))-1 /\ st Z = pow2 (st X))
+               /\ st X = n }} ->>
+  {{ fun st => st Y = pow2 (n+1) - 1 }}.
+
+Lemma pow2_plus_1 : forall n,
+  pow2 (n+1) = pow2 n + pow2 n.
+Proof. induction n; simpl. reflexivity. omega. Qed.
+
+Lemma pow2_le_1 : forall n, pow2 n >= 1.
+Proof. induction n. simpl. constructor. simpl. omega. Qed.
+
+Theorem dpow2_down_correct : forall n,
+  dec_correct (dpow2_down n).
+Proof.
+  intro m. verify.
+  - (* 1 *)
+    rewrite pow2_plus_1. rewrite <- H0. reflexivity.
+  - (* 2 *)
+    rewrite <- plus_n_O.
+    rewrite <- pow2_plus_1. remember (st X) as n.
+    replace (pow2 (n + 1) - 1 + pow2 (n + 1))
+       with (pow2 (n + 1) + pow2 (n + 1) - 1) by omega.
+    rewrite <- pow2_plus_1.
+    replace (n + 1 + 1) with (n + 2) by omega.
+    reflexivity.
+  - (* 3 *)
+    rewrite <- plus_n_O. rewrite <- pow2_plus_1.
+    reflexivity.
+  - (* 4 *)
+    replace (st X + 1 + 1) with (st X + 2) by omega.
+    reflexivity.
+Qed.
+
+Example slow_assignment_dec (m : nat) : decorated :=
+  {{ fun st => st X = m }} ->>
+  {{ fun st => st X + 0 = m}}
+  Y ::= 0
+  {{ fun st => st X + st Y = m }};;
+  WHILE ~(X = 0) DO
+    {{ fun st => st X + st Y = m /\ st X <> 0 }} ->>
+    {{ fun st => (st X - 1) + (st Y + 1) = m }}
+    X ::= X - 1
+    {{ fun st => st X + (st Y + 1) = m }};;
+    Y ::= Y + 1
+    {{ fun st => st X + st Y = m }}
+  END
+  {{ fun st => st X + st Y = m /\ st X = 0 }} ->>
+  {{ fun st => st Y = m }}.
+
+Theorem slow_assignment_dec_correct : forall m,
+    dec_correct (slow_assignment_dec m).
+Proof. intro m. verify. Qed.
+
