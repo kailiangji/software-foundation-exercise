@@ -572,3 +572,37 @@ Theorem sqrt_correct : forall m,
   dec_correct (sqrt_dec m).
 Proof. intro m. verify. Qed.
 
+Definition two_loops_dec (a b c : nat) : decorated :=
+  {{ fun st => True }} ->>
+  {{ fun st => c = 0 + c /\ 0 = 0 }}
+  X ::= 0
+  {{ fun st => c = st X + c /\ 0 = 0 }};;
+  Y ::= 0
+  {{ fun st => c = st X + c /\ st Y = 0 }};;
+  Z ::= c
+  {{ fun st => st Z = st X + c /\ st Y = 0 }};;
+  WHILE ~(X = a) DO
+    {{ fun st => (st Z = st X + c /\ st Y = 0) /\ st X <> a }} ->>
+    {{ fun st => st Z + 1 = st X + 1 + c /\ st Y = 0 }}
+    X ::= X + 1
+    {{ fun st => st Z + 1 = st X + c /\ st Y = 0 }};;
+    Z ::= Z + 1
+    {{ fun st => st Z = st X + c /\ st Y = 0 }}
+  END
+  {{ fun st => (st Z = st X + c /\ st Y = 0) /\ st X = a }} ->>
+  {{ fun st => st Z = a + st Y + c }};;
+  WHILE ~(Y = b) DO
+    {{ fun st => st Z = a + st Y + c /\ st Y <> b }} ->>
+    {{ fun st => st Z + 1 = a + st Y + 1 + c }}
+    Y ::= Y + 1
+    {{ fun st => st Z + 1 = a + st Y + c }};;
+    Z ::= Z + 1
+    {{ fun st => st Z = a + st Y + c }}
+  END
+  {{ fun st => (st Z = a + st Y + c) /\ st Y = b }} ->>
+  {{ fun st => st Z = a + b + c }}.
+
+Theorem two_loops_correct : forall a b c,
+    dec_correct (two_loops_dec a b c).
+Proof. intros a b c. verify. Qed.
+
