@@ -689,3 +689,111 @@ Theorem slow_assignment_dec_correct : forall m,
     dec_correct (slow_assignment_dec m).
 Proof. intro m. verify. Qed.
 
+Fixpoint real_fact (n : nat) : nat :=
+  match n with
+  | O => 1
+  | S n' => n * (real_fact n')
+  end.
+
+Definition factorial_dec (n : nat) : decorated :=
+    {{ fun st => st X = n }} ->>
+    {{ fun st => 1 * (real_fact (st X)) = real_fact n}}
+    Y ::= 1
+    {{ fun st => st Y * (real_fact (st X)) = real_fact n}};;
+    WHILE ~(X = 0) DO
+    {{ fun st => st Y * (real_fact (st X)) = real_fact n /\ st X <> 0}} ->>
+    {{ fun st => (st X * st Y) * (real_fact (st X - 1)) = real_fact n}}
+    Y ::= X * Y
+    {{ fun st => st Y * (real_fact (st X - 1)) = real_fact n}};;
+    X ::= X - 1
+    {{ fun st => st Y * (real_fact (st X)) = real_fact n}}
+  END
+  {{ fun st => st Y * (real_fact (st X)) = real_fact n /\ st X = 0 }} ->>
+  {{ fun st => st Y = real_fact n}}
+.
+
+Theorem factorial_dec_correct : forall n,
+    dec_correct (factorial_dec n).
+Proof.
+  intro n. verify.
+  - rewrite <- H.
+    rewrite <- mul_assoc. rewrite mul_shuffle3.
+    assert (Heq : st X * real_fact (st X - 1) = real_fact (st X)).
+    { destruct (st X).
+      { exfalso. apply H0. reflexivity. }
+      { simpl. rewrite sub_0_r. reflexivity. }
+    }
+    rewrite Heq. reflexivity.
+  - simpl in H. rewrite mul_1_r in H. apply H.
+Qed.
+
+Fixpoint fib n :=
+  match n with
+  | 0 => 1
+  | S n' => match n' with
+            | 0 => 1
+            | S n'' => fib n' + fib n''
+            end
+  end.
+
+Lemma fib_eqn : forall n,
+    n > 0 -> fib n + fib (Init.Nat.pred n) = fib (n + 1).
+Proof.
+  intros n H.
+  induction n as [| n' IH].
+  - inversion H.
+  - simpl.
+    destruct n'.
+    + simpl. reflexivity.
+    + destruct (S n' + 1) eqn:E.
+      * inversion E.
+      * assert (Heq : fib (S n) = fib n' + fib (S n')).
+        { rewrite <- E. simpl.
+          destruct (n' + 1) eqn:E'.
+          { omega. }
+          { rewrite add_1_r in E'. inversion E'. subst.
+            destruct n0.
+            { reflexivity. }
+            { simpl. rewrite add_comm. reflexivity. }
+          }
+        }
+        rewrite Heq.
+        rewrite add_1_r in E.
+        inversion E.
+        rewrite H1. omega.
+Qed.
+
+Definition T : string := "T".
+
+Definition dfib (n : nat) : decorated :=
+  {{fun st => True }} ->>
+  {{ fun st => 1 = fib 1 /\ 1 = fib (1 - 1) /\ 1 > 0 }}
+  X ::= 1
+  {{ fun st => 1 = fib (st X) /\ 1 = fib (st X - 1) /\ st X > 0 }};;
+  Y ::= 1
+  {{ fun st => 1 = fib (st X) /\ st Y = fib (st X - 1) /\ st X > 0 }};;
+  Z ::= 1
+  {{ fun st => st Z = fib (st X) /\ st Y = fib (st X - 1) /\ st X > 0 }};;
+  WHILE ~(X = n + 1) DO
+    {{ fun st => st Z = fib (st X) /\ st Y = fib (st X - 1) /\ st X > 0 /\ st X <> n + 1 }} ->>
+    {{ fun st => st Z + st Y = fib (st X + 1) /\ st Z = fib (st X + 1 - 1) /\ st X + 1 > 0 }}
+    T ::= Z
+    {{ fun st => st Z + st Y = fib (st X + 1) /\ st T = fib (st X + 1 - 1) /\ st X + 1 > 0 }};;
+    Z ::= Z + Y
+    {{ fun st => st Z = fib (st X + 1) /\ st T = fib (st X + 1 - 1) /\ st X + 1 > 0 }};;
+    Y ::= T
+    {{ fun st => st Z = fib (st X + 1) /\ st Y = fib (st X + 1 - 1) /\ st X + 1 > 0}};;
+    X ::= X + 1
+    {{ fun st => st Z = fib (st X) /\ st Y = fib (st X - 1) /\ st X > 0}}
+  END
+  {{ fun st => st Z = fib (st X) /\ st Y = fib (st X - 1) /\ st X > 0/\ st X = n + 1}} ->>
+  {{ fun st => st Y = fib n }}.
+
+Theorem dfib_correct : forall n,
+    dec_correct (dfib n).
+Proof.
+  intro n. verify.
+  - rewrite <- pred_of_minus. apply fib_eqn. apply H1.
+  - rewrite add_sub. reflexivity.
+  - rewrite add_sub. reflexivity.
+Qed.
