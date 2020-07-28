@@ -163,10 +163,17 @@ Lemma wp_invariant : forall b c Inv Q,
     {{ fun st => Inv st /\ bassn b st }} c {{ Inv }}.
 Proof.
   intros.
-  eapply hoare_consequence_pre.
-  - apply wp_is_precondition.
-  - unfold assert_implies.
-    Admitted.
+  rewrite H.
+  unfold hoare_triple.
+  intros st st' Ht [Hwp Hb].
+  unfold wp in *.
+  intros s' Hwhile.
+  apply Hwp.
+  eapply E_WhileTrue.
+  - unfold bassn in Hb. apply Hb.
+  - apply Ht.
+  - apply Hwhile.
+Qed.
 
 Lemma bassn_eval_false : forall b st, ~ bassn b st -> beval st b = false.
 Proof.
