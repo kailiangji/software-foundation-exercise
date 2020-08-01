@@ -422,3 +422,100 @@ Module Temp4.
   End Temp5.
 End Temp4.
 
+Inductive multi {X : Type} (R : relation X) : relation X :=
+| multi_refl : forall (x : X), multi R x x
+| multi_step : forall (x y z : X),
+    R x y ->
+    multi R y z ->
+    multi R x z.
+
+Notation " t '-->*' t' " := (multi step t t') (at level 40).
+
+Theorem multi_R : forall (X : Type) (R : relation X) (x y : X),
+    R x y -> (multi R) x y.
+Proof.
+  intros X R x y H. apply (multi_step R _ y).
+  - apply H.
+  - apply (multi_refl R).
+Qed.
+
+Theorem multi_trans :
+  forall (X : Type) (R : relation X) (x y z : X),
+    multi R x y ->
+    multi R y z ->
+    multi R x z.
+Proof.
+  intros.
+  induction H.
+  - apply H0.
+  - apply (multi_step R _ y).
+    + apply H.
+    + apply IHmulti. apply H0.
+Qed.
+
+Lemma test_multistep_1:
+      P
+        (P (C 0) (C 3))
+        (P (C 2) (C 4))
+   -->*
+   C ((0 + 3) + (2 + 4)).
+Proof.
+  apply (multi_step step _ (P (C (0 + 3)) (P (C 2) (C 4)))).
+  - apply ST_Plus1. apply ST_PlusConstConst.
+  - apply (multi_step step _ (P (C (0 + 3)) (C (2 + 4)))).
+    + apply ST_Plus2.
+      * constructor.
+      * apply ST_PlusConstConst.
+    + apply (multi_step step _ (C (0 + 3 + (2 + 4)))).
+      * apply ST_PlusConstConst.
+      * apply (multi_refl step).
+Qed.
+
+Lemma test_multistep_1':
+      P
+        (P (C 0) (C 3))
+        (P (C 2) (C 4))
+  -->*
+      C ((0 + 3) + (2 + 4)).
+Proof.
+  eapply multi_step. { apply ST_Plus1. apply ST_PlusConstConst. }
+  eapply multi_step. { apply ST_Plus2. apply v_const.
+                       apply ST_PlusConstConst. }
+  eapply multi_step. { apply ST_PlusConstConst. }
+  apply multi_refl.
+Qed.
+
+Lemma test_multistep_2:
+  C 3 -->* C 3.
+Proof. apply (multi_refl step). Qed.
+
+Lemma test_multistep_3:
+      P (C 0) (C 3)
+   -->*
+      P (C 0) (C 3).
+Proof. apply (multi_refl step). Qed.
+
+Lemma test_multistep_4:
+      P
+        (C 0)
+        (P
+          (C 2)
+          (P (C 0) (C 3)))
+  -->*
+      P
+        (C 0)
+        (C (2 + (0 + 3))).
+Proof.
+  eapply (multi_step step).
+  - apply ST_Plus2.
+    + apply v_const.
+    + apply ST_Plus2.
+      * apply v_const.
+      * apply ST_PlusConstConst.
+  - eapply (multi_step step).
+    + apply ST_Plus2.
+      * apply v_const.
+      * apply ST_PlusConstConst.
+    + apply (multi_refl step).
+Qed.
+
