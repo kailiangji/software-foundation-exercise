@@ -312,3 +312,113 @@ Qed.
 
 End Temp3.
 
+Module Temp4.
+
+  Inductive tm : Type :=
+  | tru : tm
+  | fls : tm
+  | test : tm -> tm -> tm -> tm.
+
+  Inductive value : tm -> Prop :=
+  | v_tru : value tru
+  | v_fls : value fls.
+
+  Reserved Notation " t '-->' t' " (at level 40).
+
+  Inductive step : tm -> tm -> Prop :=
+  | ST_IfTrue : forall t1 t2,
+      test tru t1 t2 --> t1
+  | ST_IfFalse : forall t1 t2,
+      test fls t1 t2 --> t2
+  | ST_If : forall t1 t1' t2 t3,
+      t1 --> t1' ->
+      test t1 t2 t3 --> test t1' t2 t3
+  where " t '-->' t' " := (step t t').
+
+  Theorem strong_progress : forall t,
+      value t \/ (exists t', t --> t').
+  Proof.
+    induction t.
+    - left. constructor.
+    - left. constructor.
+    - destruct IHt1. inversion H.
+      + right. exists t2. apply ST_IfTrue.
+      + right. exists t3. apply ST_IfFalse.
+      + destruct H. right. exists (test x t2 t3).
+        apply ST_If. apply H.
+  Qed.
+
+  Theorem step_deterministic :
+    deterministic step.
+  Proof.
+    unfold deterministic.
+    intros x y1 y2 Hy1 Hy2.
+    generalize dependent y2.
+    induction Hy1; intros y2 Hy2; inversion Hy2;
+      subst; try solve_by_invert.
+    - reflexivity.
+    - reflexivity.
+    - apply IHHy1 in H3. rewrite H3. reflexivity.
+  Qed.
+
+  Module Temp5.
+
+    Reserved Notation " t '-->' t' " (at level 40).
+
+    Inductive step : tm -> tm -> Prop :=
+    | ST_IfTrue : forall t1 t2,
+        test tru t1 t2 --> t1
+    | ST_IfFalse : forall t1 t2,
+        test fls t1 t2 --> t2
+    | ST_If : forall t1 t1' t2 t3,
+        t1 --> t1' ->
+        test t1 t2 t3 --> test t1' t2 t3
+    | ST_ShortCircuit : forall t1 t2,
+        test t1 t2 t2 --> t2
+    where " t '-->' t' " := (step t t').
+    
+    Definition bool_step_prop4 :=
+      test
+        (test tru tru tru)
+        fls
+        fls
+        -->
+        fls.
+
+    Example bool_step_prop4_holds :
+      bool_step_prop4.
+    Proof.
+      unfold bool_step_prop4.
+      apply ST_ShortCircuit.
+    Qed.
+
+    Theorem step_deterministic :
+    ~ (deterministic step).
+    Proof.
+      unfold deterministic, not.
+      intro H.
+      specialize H with (test (test tru tru tru) tru tru) (test tru tru tru) tru.
+      assert (Hneq : test tru tru tru <> tru).
+      { intro H'. inversion H'. }
+      apply Hneq.
+      apply H.
+      - apply ST_If. apply ST_IfTrue.
+      - apply ST_ShortCircuit.
+    Qed.
+
+    Theorem strong_progress : forall t,
+      value t \/ (exists t', t --> t').
+  Proof.
+    induction t.
+    - left. constructor.
+    - left. constructor.
+    - destruct IHt1. inversion H.
+      + right. exists t2. apply ST_IfTrue.
+      + right. exists t3. apply ST_IfFalse.
+      + destruct H. right. exists (test x t2 t3).
+        apply ST_If. apply H.
+  Qed.
+
+  End Temp5.
+End Temp4.
+
