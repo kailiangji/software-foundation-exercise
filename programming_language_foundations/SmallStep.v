@@ -519,3 +519,249 @@ Proof.
     + apply (multi_refl step).
 Qed.
 
+Definition step_normal_form := normal_form step.
+
+Definition normal_form_of (t t' : tm) :=
+  (t -->* t' /\ step_normal_form t').
+
+Theorem normal_forms_unique:
+  deterministic normal_form_of.
+Proof.
+  unfold deterministic, normal_form_of.
+  unfold step_normal_form. unfold normal_form.
+  intros x y1 y2 Hy1 Hy2.
+  generalize dependent y2.
+  destruct Hy1 as [H1 H2].
+  induction H1; intros y2 [H3 H4]; subst; try solve_by_invert.
+  - inversion H3.
+    + reflexivity.
+    + subst. unfold not in H2. exfalso. apply H2.
+      exists y. apply H.
+  - inversion H3.
+    + subst. exfalso. apply H4. exists y. apply H.
+    + subst.
+      assert (Heq : y = y0 ).
+      { apply (step_deterministic x). 
+        { apply H. }
+        { apply H0. }
+      }
+      subst.
+      apply IHmulti.
+      * apply H2.
+      * split.
+        { apply H5. }
+        { apply H4. }
+Qed.
+
+Definition normalizing {X : Type} (R : relation X) :=
+  forall t, exists t',
+      (multi R) t t' /\ normal_form R t'.
+
+Lemma multistep_congr_1 : forall t1 t1' t2,
+     t1 -->* t1' ->
+     P t1 t2 -->* P t1' t2.
+Proof.
+  intros t1 t1' t2 H1.
+  generalize dependent t2.
+  induction H1; intro t2.
+  - apply (multi_refl step).
+  - eapply (multi_step step).
+    + apply ST_Plus1. apply H.
+    + apply IHmulti.
+Qed.
+
+Lemma multistep_congr_2 : forall t1 t2 t2',
+     value t1 ->
+     t2 -->* t2' ->
+     P t1 t2 -->* P t1 t2'.
+Proof.
+  intros t1 t2 t2' H1 H2.
+  induction H2.
+  - apply (multi_refl step).
+  - eapply (multi_step step).
+    + eapply ST_Plus2.
+      * apply H1.
+      * apply H.
+    + apply IHmulti.
+Qed.
+
+Theorem step_normalizing : normalizing step.
+Proof.
+  unfold normalizing. unfold normal_form.
+  intros t.
+  induction t.
+  - exists (C n). split.
+    + apply (multi_refl step).
+    + intro. destruct H. inversion H.
+  - destruct IHt1. destruct IHt2.
+    destruct H.    
+    assert (Hv1 : value x).
+    { destruct (strong_progress x).
+      + apply H2.
+      + congruence.
+    }
+    destruct H0.
+    assert (Hv2 : value x0).
+    { destruct (strong_progress x0).
+      + apply H3.
+      + congruence.
+    }
+    inversion Hv1. inversion Hv2.
+    exists (C (n + n0)). subst.
+    split.
+    + eapply (multi_trans tm step _ (P (C n) (C n0))).
+      * eapply (multi_trans tm step _ (P (C n) t2)).
+        { apply multistep_congr_1. apply H. }
+        { apply multistep_congr_2.
+          { apply Hv1. }
+          { apply H0. }
+        }
+      * eapply (multi_step step).
+        { apply ST_PlusConstConst. }
+        { apply (multi_refl step). }
+    + intro H3. destruct H3. inversion H3.
+Qed.
+
+(* Equivalence of Big-Step and Small-Step *)
+
+Theorem eval__multistep : forall t n,
+    t ==> n -> t -->* C n.
+Proof.
+  intros t. induction t.
+  - intros n0 H. inversion H. apply (multi_refl step).
+  - intros n H. inversion H.
+    eapply (multi_trans tm step _ (P (C n1) (C n2))).
+    + eapply (multi_trans tm step _ (P (C n1) t2)).
+      * apply multistep_congr_1. apply IHt1. apply H2.
+      * apply multistep_congr_2.
+        { apply v_const. }
+        { apply IHt2. apply H4. }
+    + eapply (multi_step step).
+      * apply ST_PlusConstConst.
+      * apply (multi_refl step).
+Qed.
+
+Lemma step__eval : forall t t' n,
+    t --> t' ->
+    t' ==> n ->
+    t ==> n.
+Proof.
+  intros t t' n Hs. generalize dependent n.
+  induction Hs.
+  - intros n H. inversion H. apply E_Plus; apply E_Const.
+  - intros n H. inversion H. subst. apply E_Plus.
+    + apply IHHs. apply H2.
+    + apply H4.
+  - intros n H1. inversion H1. subst.
+    apply E_Plus.
+    + apply H3.
+    + apply IHHs. apply H5.
+Qed.
+
+Theorem multistep__eval : forall t t',
+    normal_form_of t t' -> exists n, t' = C n /\ t ==> n.
+Proof.
+  unfold normal_form_of. unfold step_normal_form.
+  intros t t' [H1 H2].
+  apply nf_is_value in H2.
+  inversion H2.
+  induction H1.
+  - exists n. split.
+    + reflexivity.
+    + rewrite <- H. apply E_Const.
+  - exists n. split.
+    + reflexivity.
+    + eapply step__eval.
+      * apply H0.
+      * apply IHmulti in H2.
+        destruct H2.
+        destruct H2.
+        inversion H2. subst.
+        { apply H3. }
+        { apply H. }
+Qed.
+
+Theorem evalF_eval : forall t n,
+    evalF t = n <-> t ==> n.
+Proof.
+  intro t. induction t.
+  - split.
+    + intro H. simpl in H. rewrite H. apply E_Const.
+    + intro H. inversion H. reflexivity.
+  - split.
+    + intro H. simpl in H. rewrite <- H. apply E_Plus.
+      * apply IHt1. reflexivity.
+      * apply IHt2. reflexivity.
+    + intro H. inversion H. subst. simpl.
+      apply IHt1 in H2. apply IHt2 in H4.
+      subst. reflexivity.
+Qed.
+
+Module Combined.
+
+  Inductive tm : Type :=
+  | C : nat -> tm
+  | P : tm -> tm -> tm
+  | tru : tm
+  | fls : tm
+  | test : tm -> tm -> tm -> tm.
+
+  Inductive value : tm -> Prop :=
+  | v_const : forall n, value (C n)
+  | v_tru : value tru
+  | v_fls : value fls.
+  
+  Reserved Notation " t '-->' t' " (at level 40).
+
+  Inductive step : tm -> tm -> Prop :=
+  | ST_PlusConstConst : forall n1 n2,
+      P (C n1) (C n2) --> C (n1 + n2)
+  | ST_Plus1 : forall t1 t1' t2,
+      t1 --> t1' ->
+      P t1 t2 --> P t1' t2
+  | ST_Plus2 : forall v1 t2 t2',
+      value v1 ->
+      t2 --> t2' ->
+      P v1 t2 --> P v1 t2'
+  | ST_IfTrue : forall t1 t2,
+      test tru t1 t2 --> t1
+  | ST_IfFalse : forall t1 t2,
+      test fls t1 t2 --> t2
+  | ST_If : forall t1 t1' t2 t3,
+      t1 --> t1' ->
+      test t1 t2 t3 --> test t1' t2 t3
+  where " t '-->' t' " := (step t t').
+
+  Theorem step_deterministic :
+    deterministic step.
+  Proof.
+    unfold deterministic.
+    intros x y1 y2 Hy1 Hy2.
+    generalize dependent y2.
+    induction Hy1; intros y2 Hy2; inversion Hy2;
+      subst; try solve_by_invert.
+    - reflexivity.
+    - apply IHHy1 in H2. rewrite H2. reflexivity.
+    - inversion H1; rewrite <- H in Hy1; inversion Hy1.
+    - inversion H; rewrite <- H0 in H3; inversion H3.
+    - apply IHHy1 in H4. rewrite H4. reflexivity.
+    - reflexivity.
+    - reflexivity.
+    - apply IHHy1 in H3. rewrite H3. reflexivity.
+  Qed.
+
+  Theorem non_strong_progress : ~ (forall t,
+      value t \/ (exists t', t --> t')).
+  Proof.
+    intro H.
+    specialize H with (P (C 1) (tru)).
+    destruct H.
+    - inversion H.
+    - destruct H. inversion H.
+      + inversion H3.
+      + inversion H4.
+  Qed.
+
+End Combined.
+
+(* Small-Step Imp *)
