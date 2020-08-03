@@ -1054,4 +1054,117 @@ Module CImp.
       + rewrite t_update_eq. reflexivity.
       + intro. inversion H.
   Qed.
-  
+
+  Lemma par_body_n__Sn : forall n st,
+      st X = n /\ st Y = 0 ->
+      par_loop / st -->* par_loop / (X !-> S n; st).
+  Proof.
+    intros n st [HX HY]. unfold par_loop.
+    eapply multi_step.
+    - apply CS_Par2. apply CS_While.
+    - eapply multi_step.
+      + apply CS_Par2. apply CS_IfStep. apply BS_Eq1.
+        apply AS_Id.
+      + eapply multi_step.
+        * apply CS_Par2. rewrite HY. apply CS_IfStep. apply BS_Eq.
+        * simpl. eapply multi_step.
+          { apply CS_Par2. apply CS_IfTrue. }
+          { eapply multi_step.
+            { apply CS_Par2. apply CS_SeqStep. apply CS_AssStep. apply AS_Plus1. apply AS_Id. }
+            { rewrite HX. eapply multi_step.
+                { apply CS_Par2. apply CS_SeqStep. apply CS_AssStep. apply AS_Plus. } 
+                { eapply multi_step.
+                  { apply CS_Par2. apply CS_SeqStep. apply CS_Ass. }
+                  { eapply multi_step.
+                    { apply CS_Par2. apply CS_SeqFinish. }
+                    { rewrite Nat.add_1_r. eapply (multi_refl cstep). }
+                  }
+                }
+            }
+          }
+  Qed.
+
+  Lemma par_body_n : forall n st,
+      st X = 0 /\ st Y = 0 ->
+      exists st',
+        par_loop / st -->* par_loop / st' /\ st' X = n /\ st' Y = 0.
+  Proof.
+    intros n st [HX HY].
+    unfold par_loop.
+    induction n.
+    - exists st. split.
+      + apply (multi_refl cstep).
+      + split; assumption.
+    - destruct IHn as [st' [IH1 [IH2 IH3]]].
+      eapply ex_intro. split.
+      + eapply multi_trans.
+        * apply IH1.
+        * eapply multi_step.
+          { apply CS_Par2. apply CS_While. }
+          { eapply multi_step.
+            { apply CS_Par2. apply CS_IfStep. apply BS_Eq1. apply AS_Id. }
+            { eapply multi_step. apply CS_Par2. rewrite IH3. apply CS_IfStep. apply BS_Eq. simpl.
+              eapply multi_step.
+              { apply CS_Par2. apply CS_IfTrue. }
+              { eapply multi_step.
+                { apply CS_Par2. apply CS_SeqStep. apply CS_AssStep. apply AS_Plus1. apply AS_Id. }
+                { rewrite IH2. eapply multi_step.
+                  { apply CS_Par2. apply CS_SeqStep. apply CS_AssStep. apply AS_Plus. }
+                  { rewrite Nat.add_1_r. eapply multi_step.
+                    { apply CS_Par2. apply CS_SeqStep. apply CS_Ass. }
+                    { eapply multi_step.
+                      { apply CS_Par2. apply CS_SeqFinish. }
+                      { apply (multi_refl cstep). }
+                    }
+                  }
+                }
+              }
+            }
+          }
+      + rewrite t_update_eq. split.
+        * reflexivity.
+        * rewrite t_update_neq.
+          { apply IH3. }
+          { intro H. inversion H. }
+  Qed.
+
+  Theorem par_loop_any_X:
+    forall n, exists st',
+    par_loop / empty_st -->* SKIP / st'
+    /\ st' X = n.
+  Proof.
+    intros n.
+    destruct (par_body_n n empty_st).
+    - split; unfold t_update; reflexivity.
+    - rename x into st.
+      inversion H as [H' [HX HY]]; clear H.
+      exists (Y !-> 1; st). split.
+      + eapply multi_trans with (par_loop, st).
+        { apply H'. }
+        { eapply multi_step.
+          { apply CS_Par1. apply CS_Ass. }
+          { eapply multi_step.
+            { apply CS_Par2. apply CS_While. }
+            { eapply multi_step.
+              { apply CS_Par2. apply CS_IfStep. apply BS_Eq1.
+                apply AS_Id. }
+              { rewrite t_update_eq. eapply multi_step.
+                { apply CS_Par2. apply CS_IfStep. apply BS_Eq. }
+                { simpl. eapply multi_step.
+                  { apply CS_Par2. apply CS_IfFalse. }
+                  { eapply multi_step.
+                    { apply CS_ParDone. }
+                    { apply multi_refl. }
+                  }
+                }
+              }
+            }
+          }
+        }
+      + rewrite t_update_neq.
+        * apply HX.
+        * intro. inversion H.
+  Qed.
+
+End CImp.
+
