@@ -1168,3 +1168,32 @@ Module CImp.
 
 End CImp.
 
+(* A Small-Step Stack Machine *)
+
+Definition stack := list nat.
+Definition prog := list sinstr.
+
+Inductive stack_step : state -> prog * stack -> prog * stack -> Prop :=
+| SS_Push : forall st stk n p',
+    stack_step st (SPush n :: p', stk) (p', n :: stk)
+| SS_Load : forall st stk i p',
+    stack_step st (SLoad i :: p', stk) (p', st i :: stk)
+| SS_Plus : forall st stk n m p',
+    stack_step st (SPlus :: p', n::m::stk) (p', (m+n)::stk)
+| SS_Minus : forall st stk n m p',
+    stack_step st (SMinus :: p', n::m::stk) (p', (m-n)::stk)
+| SSMult : forall st stk n m p',
+    stack_step st (SMult :: p', n::m::stk) (p', (m*n)::stk).
+
+Theorem stack_step_deterministic : forall st,
+    deterministic (stack_step st).
+Proof.
+  unfold deterministic.
+  intros st x y1 y2 Hy1 Hy2.
+  generalize dependent y2.
+  induction Hy1; intros y2 Hy2; inversion Hy2; subst;
+    try solve_by_invert; reflexivity.
+Qed.
+
+Definition stack_multistep st := multi (stack_step st).
+
