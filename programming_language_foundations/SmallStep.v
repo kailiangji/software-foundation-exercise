@@ -1197,3 +1197,36 @@ Qed.
 
 Definition stack_multistep st := multi (stack_step st).
 
+Theorem stack_step_theorem : forall (st : state) (e : aexp) (stack : list nat) (prog : list sinstr),
+    stack_multistep st
+                    ((s_compile e ++ prog),                 stack) 
+                    (                prog , (aeval st e) :: stack).
+Proof.
+  unfold stack_multistep.
+  induction e; intros; simpl in *;
+    try (apply multi_R; constructor);
+    try (
+        repeat (rewrite <- app_assoc);
+        eapply multi_trans; try apply IHe1;
+        eapply multi_trans; try apply IHe2;
+        eapply multi_R; constructor
+      ).
+Qed.
+
+Definition compiler_is_correct_statement : Prop := forall (st : state) (e : aexp),
+  stack_multistep st (s_compile e, []) ([], [aeval st e]).
+
+Theorem compiler_is_correct : compiler_is_correct_statement.
+Proof.
+  unfold compiler_is_correct_statement.
+  intros st e.
+  assert (Heq1 : s_compile e = s_compile e ++ []).
+  { rewrite app_nil_r. reflexivity. }
+  rewrite Heq1.
+  assert (Heq2 : [aeval st e] = [aeval st e] ++ []).
+  { rewrite app_nil_r. reflexivity. }
+  rewrite Heq2.
+  apply stack_step_theorem.
+Qed.
+
+
