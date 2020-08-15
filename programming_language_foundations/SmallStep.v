@@ -1229,4 +1229,65 @@ Proof.
   apply stack_step_theorem.
 Qed.
 
+Example step_example1 : 
+  (P (C 3) (P (C 3) (C 4)))
+    -->* (C 10).
+Proof.
+  apply multi_step with (P (C 3) (C 7)).
+  apply ST_Plus2.
+  apply v_const.
+  apply ST_PlusConstConst.
+  apply multi_step with (C 10).
+  apply ST_PlusConstConst.
+  apply multi_refl.
+Qed.
 
+Hint Constructors step value : db.
+Example step_example1' :
+  (P (C 3) (P (C 3) (C 4)))
+  -->* (C 10).
+Proof.
+  eapply multi_step. auto with db. simpl.
+  eapply multi_step. auto with db. simpl.
+  apply multi_refl.
+Qed.
+
+Tactic Notation "print_goal" :=
+  match goal with |- ?x => idtac x end.
+
+Tactic Notation "normalize" :=
+  repeat (print_goal; eapply multi_step;
+          [ (eauto 10; fail) | (instantiate; simpl)]);
+  apply multi_refl.
+
+Example step_example1'' :
+  (P (C 3) (P (C 3) (C 4)))
+  -->* (C 10).
+Proof.
+  normalize.
+Qed.
+
+Example step_example1''' : exists e',
+  (P (C 3) (P (C 3) (C 4)))
+  -->* e'.
+Proof.
+  eapply ex_intro. normalize.
+Qed.
+
+Theorem normalize_ex : exists e',
+  (P (C 3) (P (C 2) (C 1)))
+  -->* e' /\ value e'.
+Proof.
+  eapply ex_intro. split.
+  - normalize.
+  - constructor.
+Qed.
+
+Theorem normalize_ex' : exists e',
+  (P (C 3) (P (C 2) (C 1)))
+  -->* e' /\ value e'.
+Proof.
+  exists (C 6). split.
+  - normalize.
+  - constructor.
+Qed.
