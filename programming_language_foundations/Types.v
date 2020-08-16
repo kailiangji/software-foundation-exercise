@@ -225,3 +225,42 @@ Proof.
     + apply H0.
 Qed.
 
+Theorem progress : forall t T,
+    |- t ? T ->
+       value t \/ exists t', t --> t'.
+Proof.
+  intros t T H. induction H. 
+  - left. left. apply bv_tru.
+  - left. left. apply bv_fls.
+  - right. destruct IHhas_type1.
+    + inversion H; subst.
+      * eapply ex_intro; constructor.
+      * eapply ex_intro; constructor.
+      * inversion H2. inversion H6. inversion H6.
+      * inversion H2. inversion H4. inversion H4.
+    + destruct H2. exists (test x t2 t3).
+      apply ST_Test. apply H2.
+  - left. right. constructor.
+  - destruct IHhas_type.
+    + inversion H0.
+      * inversion H1; rewrite <- H2 in H; inversion H.
+      * inversion H1.
+        left. right. apply nv_scc. apply nv_zro.
+        left. right. apply nv_scc. apply nv_scc. apply H2.
+    + destruct H0. right. exists (scc x).
+      apply ST_Scc. apply H0.
+  - destruct IHhas_type.
+    + inversion H0.
+      * inversion H1; rewrite <- H2 in H; inversion H.
+      * inversion H1.
+        right. exists zro. apply ST_PrdZro.
+        right. exists t. apply ST_PrdScc. apply H2.
+    + destruct H0. right. exists (prd x). apply ST_Prd. apply H0.
+  - destruct IHhas_type.
+    + inversion H0.
+      * inversion H1; rewrite <- H2 in H; inversion H.
+      * inversion H1.
+        right. exists tru. apply ST_IszroZro.
+        right. exists fls. apply ST_IszroScc. apply H2.
+    + destruct H0. right. exists (iszro x). apply ST_Iszro. apply H0.
+Qed.
