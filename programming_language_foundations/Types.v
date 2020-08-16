@@ -145,3 +145,83 @@ Proof with eauto.
   - apply IHHy1 in H0. rewrite H0. reflexivity.
 Qed.
 
+Inductive ty : Type :=
+| Bool : ty | Nat : ty.
+
+Reserved Notation "'|-' t '?' T" (at level 40).
+
+Inductive has_type : tm -> ty -> Prop :=
+| T_Tru :
+  |- tru ? Bool
+| T_Fls :
+  |- fls ? Bool
+| T_Test : forall t1 t2 t3 T,
+    |- t1 ? Bool ->
+    |- t2 ? T ->
+    |- t3 ? T ->
+    |- test t1 t2 t3 ? T
+| T_Zro :
+  |- zro ? Nat
+| T_Scc : forall t1,
+  |- t1 ? Nat ->
+  |- scc t1 ? Nat
+| T_Prd : forall t1,
+    |- t1 ? Nat ->
+    |- prd t1 ? Nat
+| T_Iszro : forall t1,
+    |- t1 ? Nat ->
+    |- iszro t1 ? Bool
+where "'|-' t '?' T" := (has_type t T).
+
+Hint Constructors has_type : db.
+
+Example has_type_1 :
+  |- test fls zro (scc zro) ? Nat.
+Proof.
+  apply T_Test.
+  - apply T_Fls.
+  - apply T_Zro.
+  - apply T_Scc. apply T_Zro.
+Qed.
+
+Example has_type_not :
+  ~ (|- test fls zro tru ? Bool).
+Proof.
+  intro H. inversion H. inversion H5.
+Qed.
+
+Example scc_has_type_nat__hastype_nat : forall t,
+    |- scc t ? Nat ->
+    |- t ? Nat.
+Proof.
+  intros t H. inversion H. apply H1.
+Qed.
+
+Lemma bool_canonical : forall t,
+    |- t ? Bool -> value t -> bvalue t.
+Proof.
+  intros t H1 H2.
+  inversion H2.
+  - assumption.
+  - inversion H.
+    + rewrite <- H0 in H1. inversion H1.
+    + rewrite <- H3 in H1. inversion H1.
+Qed.
+
+Lemma nat_canonical : forall t,
+    |- t ? Nat -> value t -> nvalue t.
+Proof.
+  intros t H1 H2.
+  inversion H1; subst.
+  - inversion H2.
+    + inversion H4.
+    + apply H4.
+  - constructor.
+  - inversion H2.
+    + inversion H0.
+    + apply H0.
+  - inversion H2.
+    + inversion H0.
+    + apply H0.
+Qed.
+
