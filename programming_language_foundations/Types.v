@@ -264,3 +264,71 @@ Proof.
         right. exists fls. apply ST_IszroScc. apply H2.
     + destruct H0. right. exists (iszro x). apply ST_Iszro. apply H0.
 Qed.
+
+Theorem preservation : forall t t' T,
+    |- t ? T ->
+    t --> t' ->
+    |- t' ? T.
+Proof.
+  intros t t' T H1 H2.
+  generalize dependent t'.
+  induction H1.
+  - intros t' H2. inversion H2.
+  - intros t' H2. inversion H2.
+  - intros t' H2. inversion H2; subst.
+    + apply H1_0.
+    + apply H1_1.
+    + apply T_Test.
+      * apply IHhas_type1. apply H4.
+      * apply H1_0.
+      * apply H1_1.
+  - intros t' H2. inversion H2.
+  - intros t' H2. inversion H2; subst.
+    apply T_Scc. apply IHhas_type. apply H0.
+  - intros t' H2. inversion H2; subst.
+    + apply T_Zro.
+    + inversion H1. apply H3.
+    + apply T_Prd. apply IHhas_type. apply H0.
+  - intros t' H2. inversion H2; subst.
+    + apply T_Tru.
+    + apply T_Fls.
+    + apply T_Iszro. apply IHhas_type. apply H0.
+Qed.
+
+Theorem proservation': forall t t' T,
+    |- t ? T ->
+    t --> t' ->
+    |- t' ? T.
+Proof with eauto.
+  intros t t' T H1 H2.
+  generalize dependent T.
+  induction H2; intros T H1.
+  - inversion H1; subst. apply H5.
+  - inversion H1; subst. apply H6.
+  - apply T_Test.
+    + apply IHstep. inversion H1; subst. apply H4.
+    + inversion H1; subst. apply H6.
+    + inversion H1; subst. apply H7.
+  - inversion H1; subst. apply T_Scc. apply IHstep. apply H0.
+  - inversion H1. apply T_Zro.
+  - inversion H1; subst. inversion H2. apply H3.
+  - inversion H1; subst. apply T_Prd. apply IHstep. apply H0.
+  - inversion H1; subst. apply T_Tru.
+  - inversion H1; subst. apply T_Fls.
+  - inversion H1; subst. apply T_Iszro. apply IHstep. apply H0.
+Qed.
+
+Definition multistep := (multi step).
+Notation "t1 '-->*' t2" := (multistep t1 t2) (at level 40).
+
+Corollary soundness : forall t t' T,
+    |- t ? T ->
+    t -->* t' ->
+    ~(stuck t').
+Proof.
+  intros t t' T HT P. induction P; intros [R S].
+  destruct (progress x T HT); auto.
+  apply IHP. apply (preservation x y T HT H).
+  unfold stuck. split; auto.
+Qed.
+
