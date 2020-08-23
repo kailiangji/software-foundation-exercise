@@ -314,3 +314,22 @@ Module STLCProp.
         * apply Hnf.
         * apply Hnot_val.
   Qed.
+
+  Theorem unique_types : forall Gamma e T T',
+      Gamma |- e ? T ->
+      Gamma |- e ? T' ->
+      T = T'.
+  Proof.
+    intros Gamma e T T' HT HT'.
+    generalize dependent T'.
+    induction HT; intros T' HT'; inversion HT'; subst.
+    - rewrite H in H2. inversion H2. reflexivity.
+    - apply IHHT in H4. subst. reflexivity.
+    - apply IHHT1 in H2.
+      apply IHHT2 in H4. subst. inversion H2. reflexivity.
+    - reflexivity.
+    - reflexivity.
+    - apply IHHT3 in H6. apply H6.
+  Qed.
+
+  End STLCProp.
