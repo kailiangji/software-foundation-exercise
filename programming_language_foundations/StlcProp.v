@@ -169,9 +169,148 @@ Module STLCProp.
       (forall x, appears_free_in x t -> Gamma x = Gamma' x) ->
       Gamma' |- t ? T.
   Proof.
-   (* intros Gamma Gamma' t T H1 H2.
-    induction H1.
-    - apply T_Var. rewrite <- H. symmetry. eapply H2. apply afi_var.
-    - apply T_Abs. 
-    *)
-    Admitted.
+    intros Gamma Gamma' t T H1 H2.
+    generalize dependent Gamma'.
+    induction H1; intros Gamma' H2.
+    - apply T_Var. rewrite <- H. symmetry.
+      eapply H2. apply afi_var.
+    - apply T_Abs. apply IHhas_type.
+      intros x1 Hafi. destruct (string_dec x0 x1).
+      + rewrite e. rewrite update_eq. rewrite update_eq.
+        reflexivity.
+      + rewrite update_neq.
+        * rewrite update_neq.
+          { apply H2. apply afi_abs. apply n. apply Hafi. }
+          { apply n. }
+        * apply n.
+    - eapply T_App.
+      + apply IHhas_type1. intros x0 H3.
+        apply H2. apply afi_app1. apply H3.
+      + apply IHhas_type2. intros x0 H3.
+        apply H2. apply afi_app2. apply H3.
+    - apply T_Tru.
+    - apply T_Fls.
+    - apply T_Test.
+      + apply IHhas_type1. intros x0 H3.
+        apply H2. apply afi_test1. apply H3.
+      + apply IHhas_type2. intros x0 H3.
+        apply H2. apply afi_test2. apply H3.
+      + apply IHhas_type3. intros x0 H3.
+        apply H2. apply afi_test3. apply H3.
+  Qed.
+
+  Lemma substitution_preserves_typing : forall Gamma x U t v T,
+      (x |-> U; Gamma) |- t ? T ->
+      empty |- v ? U ->
+      Gamma |- [x:=v]t ? T.
+  Proof with eauto.
+    intros Gamma x U t v T Ht Ht'.
+    generalize dependent Gamma. generalize dependent T.
+    induction t; intros T Gamma H; inversion H; subst; simpl...
+    - rename s into y. destruct (eqb_stringP x y) as [Hxy|Hxy].
+      + subst. rewrite update_eq in H2. inversion H2; subst.
+        eapply context_invariance. eassumption.
+        apply typable_empty__closed in Ht'. unfold closed in Ht'.
+        intros. apply (Ht' x0) in H0. inversion H0.
+      + apply T_Var. rewrite update_neq in H2...
+    - eapply T_App.
+      + apply IHt1. apply H3.
+      + apply IHt2. apply H5.
+    - rename s into y. rename t into T. apply T_Abs.
+      destruct (eqb_stringP x y) as [Hxy | Hxy].
+      + subst. rewrite update_shadow in H5. apply H5.
+      + apply IHt. eapply context_invariance...
+        intros z Hafi.
+        destruct (string_dec y z).
+        * subst. rewrite update_eq.
+          destruct (string_dec x z).
+          { subst. rewrite update_eq. exfalso.
+            apply Hxy. reflexivity. }
+          { rewrite update_neq. rewrite update_eq.
+            reflexivity. apply n. 
+          }
+        * rewrite update_neq. destruct (string_dec x z).
+          { subst. rewrite update_eq. rewrite update_eq. reflexivity. }
+          { rewrite update_neq. rewrite update_neq. rewrite update_neq.
+            reflexivity. apply n. apply n0. apply n0.
+          }
+          { apply n. }
+    - apply T_Tru.
+    - apply T_Fls.
+    - apply T_Test.
+      + apply IHt1. apply H4.
+      + apply IHt2. apply H6.
+      + apply IHt3. apply H7.
+  Qed.
+
+  Theorem preservation : forall t t' T,
+      empty |- t ? T ->
+      t --> t' ->
+      empty |- t' ? T.
+  Proof with eauto.
+    remember (@empty ty) as Gamma.
+    intros t t' T HT. generalize dependent t'.
+    induction HT; intros t' HE.
+    - subst Gamma. subst. solve [inversion HE; subst; auto].
+    - subst Gamma. subst. solve [inversion HE; subst; auto].
+    - subst. inversion HE; subst...
+      + apply substitution_preserves_typing with T11...
+        inversion HT1...
+      + eapply T_App.
+        * apply IHHT1. reflexivity. apply H2.
+        * apply HT2.
+      + eapply T_App.
+        * apply HT1.
+        * apply IHHT2. reflexivity. apply H3.
+    - inversion HE.
+    - inversion HE.
+    - inversion HE; subst.
+      + apply HT2.
+      + apply HT3.
+      + apply T_Test.
+        * apply IHHT1. reflexivity. apply H3.
+        * apply HT2.
+        * apply HT3.
+  Qed.
+
+  Definition stuck (t : tm) : Prop :=
+    (normal_form step) t /\ ~ value t.
+
+  Corollary soundness : forall t t' T,
+      empty |- t ? T ->
+      t -->* t' ->
+      ~ (stuck t').
+  Proof.
+    intros t t' T Hhas_type Hmulti. unfold stuck.
+    intros [Hnf Hnot_val]. unfold normal_form in Hnf.
+    induction Hmulti.
+    - inversion Hhas_type; subst.
+      + inversion H.
+      + apply Hnot_val. apply v_abs.
+      + apply progress in Hhas_type. destruct Hhas_type; contradiction.
+      + apply Hnot_val. apply v_tru.
+      + apply Hnot_val. apply v_fls.
+      + apply progress in Hhas_type. destruct Hhas_type; contradiction.
+    - inversion Hhas_type; subst.
+      + inversion H0.
+      + apply IHHmulti.
+        * eapply preservation.
+          apply Hhas_type.
+          apply H.
+        * apply Hnf.
+        * apply Hnot_val.
+      + apply IHHmulti.
+        * eapply preservation.
+          apply Hhas_type.
+          apply H.
+        * apply Hnf.
+        * apply Hnot_val.
+      + inversion H.
+      + inversion H.
+      + apply IHHmulti.
+        * eapply preservation.
+          apply Hhas_type.
+          apply H.
+        * apply Hnf.
+        * apply Hnot_val.
+  Qed.
