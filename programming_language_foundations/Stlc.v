@@ -196,8 +196,9 @@ Module STLC.
     app idBB (app notB tru) -->* fls.
   Proof.
     eapply multi_step.
-    - apply ST_App2. auto.
-      apply ST_AppAbs. auto.
+    - apply ST_App2.
+      + apply v_abs.
+      + apply ST_AppAbs. apply v_tru. 
     - eapply multi_step.
       + simpl. apply ST_App2.
         * apply v_abs.
