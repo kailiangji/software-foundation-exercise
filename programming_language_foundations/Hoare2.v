@@ -797,3 +797,90 @@ Proof.
   - rewrite add_sub. reflexivity.
   - rewrite add_sub. reflexivity.
 Qed.
+
+(* Exercise improve_dcom *)
+Section WP.
+  
+  Inductive wpcom : Type :=
+  | WPSkip : wpcom
+  | WPSeq : wpcom -> wpcom -> wpcom
+  | WPAsgn : string -> aexp -> wpcom
+  | WPIf : bexp -> wpcom -> wpcom -> wpcom
+  | WPWhile : bexp -> Assertion -> wpcom -> wpcom.
+
+  Declare Scope wpcom_scope.
+
+  Notation "'SKIP'" := (WPSkip) : wpcom_scope.
+
+  Notation "l '::=' a"
+    := (WPAsgn l a)
+         (at level 60, a at next level) : wpcom_scope.
+
+  Notation "'WHILE' b 'DO' {{ Inv }} d 'END'"
+    := (WPWhile b Inv d)
+         (at level 80, right associativity) : wpcom_scope.
+
+  Notation "'TEST' b 'THEN' d 'ELSE' d' 'FI'"
+    := (WPIf b d d')
+         (at level 80, right associativity) : wpcom_scope.
+
+  Notation " d ;; d' "
+    := (WPSeq d d')
+         (at level 80, right associativity) : wpcom_scope.
+
+  Open Scope wpcom_scope.
+
+  Fixpoint wp_extract (s : wpcom) : com :=
+    match s with
+    | WPSkip => SKIP
+    | WPSeq s1 s2 => (wp_extract s1 ;; wp_extract s2)
+    | WPAsgn X a => X ::= a
+    | WPIf b s1 s2 => TEST b THEN (wp_extract s1) ELSE (wp_extract s2) FI
+    | WPWhile b _ s1 => WHILE b DO wp_extract s1 END
+    end.
+ 
+  Fixpoint wp (s : wpcom) (Q : Assertion) : Assertion :=
+    match s with
+    | WPSkip => Q
+    | WPAsgn X a => Q[X |-> a]
+    | WPSeq s1 s2 => wp s1 (wp s2 Q)
+    | WPIf b s1 s2 => fun st => ((bassn b st /\ (wp s1 Q) st)) \/
+                                (~(bassn b st) /\ (wp s2 Q) st)
+    | WPWhile b Inv s1 =>
+      fun st => Inv st /\ (bassn b st /\ Inv st -> (wp s1 Inv) st) /\
+                (~(bassn b st) /\ Inv st -> Q st)
+    end.
+  (*
+  Theorem wp_correct : forall s Q,
+      {{ wp s Q }} wp_extract s {{ Q }}.
+  Proof.
+    intro s.
+    induction s.
+    - simpl. apply hoare_skip.
+    - intro Q. simpl.
+      eapply hoare_consequence_pre.
+      + eapply hoare_seq.
+        * apply IHs2.
+        * apply IHs1.
+      + unfold assert_implies. auto.
+    - intro Q. simpl. apply hoare_asgn.
+    - intro Q. simpl.
+      apply hoare_if.
+      + eapply hoare_consequence_pre.
+        * apply IHs1.
+        * unfold assert_implies. intros st [[[H1 H2] | [H1 H2]] H3].
+          { assumption. }
+          { congruence. }
+      + eapply hoare_consequence_pre.
+        * apply IHs2.
+        * unfold assert_implies. intros st [[[H1 H2] | [H1 H2]] H3].
+          { congruence. }
+          { assumption. }
+    - intro Q. simpl.
+      eapply hoare_consequence.
+      + apply (hoare_while a).
+        eapply hoare_consequence_pre.
+        * apply IHs.
+        * unfold assert_implies.
+          intros. *)
+End WP.

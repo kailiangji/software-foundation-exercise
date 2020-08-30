@@ -51,7 +51,7 @@ Module STLC.
   | v_tru : value tru
   | v_fls : value fls.
 
-  Hint Constructors value.
+  Hint Constructors value : db.
 
   Reserved Notation "'[' x ':=' s ']' t" (at level 20).
 
