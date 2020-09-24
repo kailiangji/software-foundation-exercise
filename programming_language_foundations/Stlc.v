@@ -24,9 +24,9 @@ Module STLC.
   Definition y := "y".
   Definition z := "z".
 
-  Hint Unfold x.
-  Hint Unfold y.
-  Hint Unfold z.
+  Hint Unfold x : db.
+  Hint Unfold y : db.
+  Hint Unfold z : db.
 
   (* idB = \x.Bool.x *)
   Notation idB := (abs x Bool (var x)).
@@ -97,7 +97,7 @@ Module STLC.
   .
   
 
-  Hint Constructors substi.
+  Hint Constructors substi : db.
 
   Theorem substi_correct : forall s x t t',
       [x:=s]t = t' <-> substi s x t t'.

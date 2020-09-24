@@ -28,8 +28,8 @@ Definition value (t : tm) := bvalue t \/ nvalue t.
 
 Hint Constructors bvalue nvalue : db.
 
-Hint Unfold value.
-Hint Unfold update.
+Hint Unfold value : db.
+Hint Unfold update : db.
 
 Reserved Notation "t1 '-->' t2" (at level 40).
 
@@ -60,14 +60,14 @@ Inductive step : tm -> tm -> Prop :=
                
 where "t1 '-->' t2" := (step t1 t2).
 
-Hint Constructors step.
+Hint Constructors step : db.
 
 Notation step_normal_form := (normal_form step).
 
 Definition stuck (t : tm) : Prop :=
   step_normal_form t /\ ~ value t.
 
-Hint Unfold stuck.
+Hint Unfold stuck : db.
 
 Example some_term_is_stuck :
   exists t, stuck t.
