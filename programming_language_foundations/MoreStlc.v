@@ -231,10 +231,9 @@ Module STLCExtended.
   | ST_Let1 : forall x t1 t1' t2,
       t1 --> t1' ->
       (tlet x t1 t2) --> (tlet x t1' t2)
-  | ST_LetValue : forall x v1 t2 t2',
+  | ST_LetValue : forall x v1 t2,
       value v1 ->
-      t2 --> t2' ->
-      (tlet x v1 t2) --> (tlet x v1 t2')
+      (tlet x v1 t2) --> [x := v1]t2
   | ST_Fix1 : forall t1 t1',
       t1 --> t1' ->
       tfix t1 --> tfix t1'
@@ -268,7 +267,7 @@ Module STLCExtended.
   | T_Succ : forall Gamma t1,
       Gamma |- t1 ? Nat ->
       Gamma |- (scc t1) ? Nat
-  | T_Prd : forall Gamma t1,
+  | T_Pred : forall Gamma t1,
       Gamma |- t1 ? Nat ->
       Gamma |- (prd t1) ? Nat
   | T_Mult : forall Gamma t1 t2,
@@ -308,6 +307,12 @@ Module STLCExtended.
       Gamma |- t1 ? T1 ->
       Gamma |- t2 ? T2 ->
       Gamma |- (pair t1 t2) ? (Prod T1 T2)
+  | T_Fst : forall Gamma t T1 T2,
+      Gamma |- t ? (Prod T1 T2) ->
+      Gamma |- (fst t) ? T1
+  | T_Snd : forall Gamma t T1 T2,
+      Gamma |- t ? (Prod T1 T2) ->
+      Gamma |- (snd t) ? T2
   | T_Let : forall Gamma x t1 T1 t2 T2,
       Gamma |- t1 ? T1 ->
       (x |-> T1; Gamma) |- t2 ? T2 ->
@@ -318,3 +323,495 @@ Module STLCExtended.
   where "Gamma '|-' t '?' T" := (has_type Gamma t T).
 
   Hint Constructors has_type : db.
+
+  Module Examples.
+
+    Open Scope string_scope.
+    Notation x := "x".
+    Notation y := "y".
+    Notation a := "a".
+    Notation f := "f".
+    Notation g := "g".
+    Notation l := "l".
+    Notation k := "k".
+    Notation i1 := "i1".
+    Notation i2 := "i2".
+    Notation processSum := "processSum".
+    Notation n := "n".
+    Notation eq := "eq".
+    Notation m := "m".
+    Notation evenodd := "evenodd".
+    Notation even := "even".
+    Notation odd := "odd".
+    Notation eo := "eo".
+
+    Hint Extern 2 (has_type _ (app _ _) _) => eapply T_App; auto : db.
+    Hint Extern 2 (has_type _ (tlcase _ _ _ _) _) => eapply T_Lcase; auto : db.
+    Hint Extern 2 (_ = _) => compute; reflexivity : db.
+
+    Module Numtest.
+
+      Definition test :=
+        test0
+          (prd
+             (scc
+                (prd
+                   (mlt
+                      (const 2)
+                      (const 0)))))
+          (const 5)
+          (const 6).
+
+      Example typechecks :
+        empty |- test ? Nat.
+      Proof.
+        unfold test.
+        auto 10 with db.
+      Qed.
+
+      Example numtest_reduces :
+        test -->* const 5.
+      Proof.
+        unfold test.
+        normalize.
+      Qed.
+
+    End Numtest.
+
+    Module Prodtest.
+
+      Definition test :=
+        snd
+          (fst
+             (pair
+                (pair
+                   (const 5)
+                   (const 6))
+                (const 7))).
+
+      Example typechecks :
+        empty |- test ? Nat.
+      Proof.
+        unfold test.
+        eapply T_Snd.
+        eapply T_Fst.
+        apply T_Pair.
+        - apply T_Pair.
+          + apply T_Nat.
+          + apply T_Nat.
+        - apply T_Nat.
+      Qed.
+
+      Example reduces :
+        test -->* const 6.
+      Proof. unfold test. normalize. Qed.
+
+    End Prodtest.
+
+    Module LetTest.
+
+      Definition test :=
+        tlet
+          x
+          (prd (const 6))
+          (scc (var x)).
+
+      Example typechecks :
+        empty |- test ? Nat.
+      Proof.
+        unfold test.
+        eapply T_Let.
+        - auto with db.
+        - auto with db.
+      Qed.
+
+      Example reduces :
+        test -->* const 6.
+      Proof.
+        unfold test.
+        eapply multi_step.
+        - apply ST_Let1. apply ST_PredNat.
+        - simpl.
+          eapply multi_step.
+          + apply ST_LetValue. apply v_nat.
+          + simpl. eapply multi_step.
+            * apply ST_SuccNat.
+            * apply multi_refl.
+      Qed.
+
+    End LetTest.
+
+    Module Sumtest1.
+
+      Definition test :=
+        tcase (tinl Nat (const 5))
+              x (var x)
+              y (var y).
+
+      Example typechecks :
+        empty |- test ? Nat.
+      Proof.
+        unfold test.
+        eapply T_Case.
+        - apply T_Inl. apply T_Nat.
+        - apply T_Var. rewrite update_eq. reflexivity.
+        - apply T_Var. rewrite update_eq. reflexivity.
+      Qed.
+
+      Example reduces:
+        test -->* (const 5).
+      Proof.
+        unfold test.
+        eapply multi_step.
+        - eapply ST_CaseInl. apply v_nat.
+        - simpl. apply multi_refl.
+      Qed.
+
+    End Sumtest1.
+
+    Module Sumtest2.
+
+      Definition test :=
+        tlet
+          processSum
+          (abs x (Sum Nat Nat)
+               (tcase (var x)
+                      n (var n)
+                      n (test0 (var n) (const 1) (const 0))))
+          (pair
+             (app (var processSum) (tinl Nat (const 5)))
+             (app (var processSum) (tinr Nat (const 5)))).
+
+      Example typechecks :
+        empty |- test ? (Prod Nat Nat).
+      Proof.
+        unfold test.
+        eapply T_Let.
+        - apply T_Abs. eapply T_Case.
+          + apply T_Var. rewrite update_eq. reflexivity.
+          + apply T_Var. rewrite update_eq. reflexivity.
+          + apply T_Test0.
+            * apply T_Var. rewrite update_eq. reflexivity.
+            * apply T_Nat.
+            * apply T_Nat.
+        - apply T_Pair.
+          + eapply T_App.
+            * apply T_Var. rewrite update_eq. reflexivity.
+            * apply T_Inl. apply T_Nat.
+          + eapply T_App.
+            * apply T_Var. rewrite update_eq. reflexivity.
+            * apply T_Inr. apply T_Nat.
+      Qed.
+
+      Example reduces :
+        test -->* (pair (const 5) (const 0)).
+      Proof.
+        unfold test. normalize.
+      Qed.
+
+    End Sumtest2.
+
+    Module ListTest.
+
+      Definition test :=
+        tlet l
+             (tcons (const 5) (tcons (const 6) (tnil Nat)))
+             (tlcase (var l)
+                     (const 0)
+                     x y (mlt (var x) (var x))).
+
+      Example typechecks :
+        empty |- test ? Nat.
+      Proof.
+        unfold test.
+        eapply T_Let.
+        - apply T_Cons.
+          + apply T_Nat.
+          + apply T_Cons.
+            * apply T_Nat.
+            * apply T_Nil.
+        - eapply T_Lcase.
+          + apply T_Var. rewrite update_eq. reflexivity.
+          + apply T_Nat.
+          + apply T_Mult; apply T_Var; rewrite update_eq; reflexivity.
+      Qed.
+
+      Example reduces :
+        test -->* (const 25).
+      Proof.
+        unfold test.
+        eapply multi_step.
+        - apply ST_LetValue. apply v_lcons.
+          + apply v_nat.
+          + apply v_lcons.
+            * apply v_nat.
+            * apply v_lnil.
+        - simpl. eapply multi_step.
+          + apply ST_LcaseCons.
+            * apply v_nat.
+            * apply v_lcons.
+              { apply v_nat. }
+              { apply v_lnil. }
+          + simpl. eapply multi_step.
+            * apply ST_Mulconsts.
+            * simpl. apply multi_refl.
+      Qed.
+
+    End ListTest.
+
+    Module FixTest1.
+
+      Definition fact :=
+        tfix
+          (abs f (Arrow Nat Nat)
+               (abs a Nat
+                    (test0
+                       (var a)
+                       (const 1)
+                       (mlt
+                          (var a)
+                          (app (var f) (prd (var a))))))).
+
+      Example typechecks :
+        empty |- fact ? (Arrow Nat Nat).
+      Proof.
+        unfold fact.
+        apply T_Fix. apply T_Abs. apply T_Abs.
+        apply T_Test0.
+        - apply T_Var. rewrite update_eq. reflexivity.
+        - apply T_Nat.
+        - apply T_Mult.
+          + apply T_Var. rewrite update_eq. reflexivity.
+          + eapply T_App.
+            * apply T_Var. rewrite update_neq.
+              { rewrite update_eq. reflexivity. }
+              { intro H. inversion H. }
+            * apply T_Pred. apply T_Var. rewrite update_eq. reflexivity.
+      Qed.
+
+      Example reduces :
+        (app fact (const 4)) -->* (const 24).
+      Proof.
+        unfold fact.
+        eapply multi_step.
+        - apply ST_App1. apply ST_FixAbs.
+        - simpl. eapply multi_step.
+          + apply ST_AppAbs. apply v_nat.
+          + simpl. eapply multi_step.
+            * apply ST_Test0Nonzero.
+            * eapply multi_step.
+              { apply ST_Mult2.
+                { apply v_nat. }
+                { apply ST_App1. apply ST_FixAbs. }
+              }
+              { simpl. eapply multi_step.
+                { apply ST_Mult2.
+                  { apply v_nat. }
+                  { apply ST_App2.
+                    { apply v_abs. }
+                    { apply ST_PredNat. }
+                  }
+                }
+                { eapply multi_step. 
+                  { apply ST_Mult2.
+                    { apply v_nat. }
+                    { simpl. apply ST_AppAbs. apply v_nat. }
+                  }
+                  { simpl. eapply multi_step.
+                    { apply ST_Mult2.
+                      { apply v_nat. }
+                      { apply ST_Test0Nonzero. }
+                    }
+                    { eapply multi_step.
+                      { apply ST_Mult2.
+                        { apply v_nat. }
+                        { apply ST_Mult2.
+                          { apply v_nat. }
+                          { apply ST_App1. apply ST_FixAbs. }
+                        }
+                      }
+                      { eapply multi_step.
+                        { simpl. apply ST_Mult2.
+                          { apply v_nat. }
+                          { apply ST_Mult2.
+                            { apply v_nat. }
+                            { apply ST_App2.
+                              { apply v_abs. }
+                              { apply ST_PredNat. }
+                            }
+                          }
+                        }
+                        { simpl. eapply multi_step.
+                          { apply ST_Mult2.
+                            { apply v_nat. }
+                            { apply ST_Mult2.
+                              { apply v_nat. }
+                              { apply ST_AppAbs. apply v_nat. }
+                            }
+                          }
+                          { simpl. eapply multi_step.
+                            { apply ST_Mult2.
+                              { apply v_nat. }
+                              { apply ST_Mult2.
+                                { apply v_nat. }
+                                { apply ST_Test0Nonzero. }
+                              }
+                            }
+                            { eapply multi_step.
+                              { apply ST_Mult2.
+                                { apply v_nat. }
+                                { apply ST_Mult2.
+                                  { apply v_nat. }
+                                  { apply ST_Mult2.
+                                    { apply v_nat. }
+                                    { apply ST_App1. apply ST_FixAbs. }
+                                  }
+                                }
+                              }
+                              { eapply multi_step.
+                                { apply ST_Mult2.
+                                  { apply v_nat. }
+                                  { apply ST_Mult2.
+                                    { apply v_nat. }
+                                    { apply ST_Mult2.
+                                      { apply v_nat. }
+                                      { simpl. apply ST_App2.
+                                        { apply v_abs. }
+                                        { apply ST_PredNat. }
+                                      }
+                                    }
+                                  }
+                                }
+                                { eapply multi_step.
+                                  { apply ST_Mult2.
+                                    { apply v_nat. }
+                                    { apply ST_Mult2.
+                                      { apply v_nat. }
+                                      { apply ST_Mult2.
+                                        { apply v_nat. }
+                                        { apply ST_AppAbs. simpl. apply v_nat. }
+                                      }
+                                    }
+                                  }
+                                  { simpl. eapply multi_step.
+                                    { apply ST_Mult2.
+                                      { apply v_nat. }
+                                      { apply ST_Mult2.
+                                        { apply v_nat. }
+                                        { apply ST_Mult2.
+                                          { apply v_nat. }
+                                          { apply ST_Test0Nonzero. }
+                                        }
+                                      }
+                                    }
+                                    { eapply multi_step.
+                                      { apply ST_Mult2.
+                                        { apply v_nat. }
+                                        { apply ST_Mult2.
+                                          { apply v_nat. }
+                                          { apply ST_Mult2.
+                                            { apply v_nat. }
+                                            { apply ST_Mult2.
+                                              { apply v_nat. }
+                                              { apply ST_App1. apply ST_FixAbs. }
+                                            }
+                                          }
+                                        }
+                                      }
+                                      { simpl. eapply multi_step.
+                                        { apply ST_Mult2.
+                                          { apply v_nat. }
+                                          { apply ST_Mult2.
+                                            { apply v_nat. }
+                                            { apply ST_Mult2.
+                                              { apply v_nat. }
+                                              { apply ST_Mult2.
+                                                { apply v_nat. }
+                                                { apply ST_App2.
+                                                  { apply v_abs. }
+                                                  { apply ST_PredNat. }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                        { eapply multi_step.
+                                          { apply ST_Mult2.
+                                            { apply v_nat. }
+                                            { apply ST_Mult2.
+                                              { apply v_nat. }
+                                              { apply ST_Mult2.
+                                                { apply v_nat. }
+                                                { apply ST_Mult2.
+                                                  { apply v_nat. }
+                                                  { apply ST_AppAbs.  simpl. apply v_nat. }
+                                                }
+                                              }
+                                            }
+                                          }
+                                          { simpl. eapply multi_step.
+                                            { apply ST_Mult2.
+                                              { apply v_nat. }
+                                              { apply ST_Mult2.
+                                                { apply v_nat. }
+                                                { apply ST_Mult2.
+                                                  { apply v_nat. }
+                                                  { apply ST_Mult2.
+                                                    { apply v_nat. }
+                                                    { apply ST_Test0Zero. }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                            { eapply multi_step.
+                                              { apply ST_Mult2.
+                                                { apply v_nat. }
+                                                { apply ST_Mult2.
+                                                  { apply v_nat. }
+                                                  { apply ST_Mult2.
+                                                    { apply v_nat. }
+                                                    { apply ST_Mulconsts. }
+                                                  }
+                                                }
+                                              }
+                                              { simpl. eapply multi_step.
+                                                { eapply ST_Mult2.
+                                                  { apply v_nat. }
+                                                  { apply ST_Mult2.
+                                                    { apply v_nat. }
+                                                    { apply ST_Mulconsts. 
+                                                    }
+                                                  }
+                                                }
+                                                { simpl. eapply multi_step.
+                                                  { apply ST_Mult2.
+                                                    { apply v_nat. }
+                                                    { apply ST_Mulconsts. }
+                                                  }
+                                                  { simpl. eapply multi_step.
+                                                    { apply ST_Mulconsts. }
+                                                    { simpl. apply multi_refl. }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+      Qed.
+
+    End FixTest1.
+
+    
