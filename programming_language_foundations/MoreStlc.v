@@ -814,4 +814,184 @@ Module STLCExtended.
 
     End FixTest1.
 
+    Module FixTest2.
+
+      Definition map :=
+        abs g (Arrow Nat Nat)
+            (tfix
+               (abs f (Arrow (List Nat) (List Nat))
+                    (abs l (List Nat)
+                         (tlcase (var l)
+                                 (tnil Nat)
+                                 a l (tcons (app (var g) (var a))
+                                            (app (var f) (var l))))))).
+
+      Example typechecks :
+        empty |- map ? (Arrow (Arrow Nat Nat)
+                              (Arrow (List Nat)
+                                     (List Nat))).
+      Proof.
+        unfold map.
+        apply T_Abs. apply T_Fix. apply T_Abs. apply T_Abs.
+        eapply T_Lcase.
+        - apply T_Var. rewrite update_eq. reflexivity.
+        - apply T_Nil.
+        - apply T_Cons.
+          + eapply T_App.
+            * apply T_Var. rewrite update_neq. rewrite update_neq.
+              rewrite update_neq. rewrite update_neq. rewrite update_eq.
+              reflexivity.
+              intro H; inversion H.
+              intro H; inversion H.
+              intro H; inversion H.
+              intro H; inversion H.
+            * apply T_Var. rewrite update_eq. reflexivity.
+          + eapply T_App.
+            * apply T_Var. rewrite update_neq. rewrite update_neq.
+              rewrite update_neq. rewrite update_eq.
+              reflexivity.
+              intro H; inversion H.
+              intro H; inversion H.
+              intro H; inversion H.
+            * apply T_Var. rewrite update_neq. rewrite update_eq.
+              reflexivity.
+              intro H; inversion H.
+      Qed.
+
+      Example reduces :
+        app (app map (abs a Nat (scc (var a))))
+            (tcons (const 1) (tcons (const 2) (tnil Nat)))
+            -->* (tcons (const 2) (tcons (const 3) (tnil Nat))).
+      Proof.
+        unfold map. normalize.
+      Qed.
+
+    End FixTest2.
     
+    Module FixTest3.
+      
+      Definition equal :=
+        tfix
+          (abs eq (Arrow Nat (Arrow Nat Nat))
+               (abs m Nat
+                    (abs n Nat
+                         (test0 (var m)
+                                (test0 (var n) (const 1) (const 0))
+                                (test0 (var n)
+                                       (const 0)
+                                       (app (app (var eq)
+                                                 (prd (var m)))
+                                            (prd (var n)))))))).
+      Example typechecks :
+        empty |- equal ? (Arrow Nat (Arrow Nat Nat)).
+      Proof.
+        unfold equal.
+        apply T_Fix. apply T_Abs. apply T_Abs. apply T_Abs.
+        apply T_Test0.
+        - apply T_Var. rewrite update_neq. rewrite update_eq.
+          reflexivity. intro H; inversion H.
+        - apply T_Test0.
+          + apply T_Var. rewrite update_eq. reflexivity.
+          + apply T_Nat.
+          + apply T_Nat.
+        - apply T_Test0.
+          + apply T_Var. rewrite update_eq. reflexivity.
+          + apply T_Nat.
+          + eapply T_App.
+            * eapply T_App.
+              { apply T_Var. rewrite update_neq. rewrite update_neq.
+                rewrite update_eq. reflexivity. intro H; inversion H.
+                intro H; inversion H.
+              }
+              { apply T_Pred. apply T_Var. rewrite update_neq.
+                rewrite update_eq. reflexivity. intro H; inversion H.
+              }
+            * apply T_Pred. apply T_Var. rewrite update_eq. reflexivity.
+      Qed.
+      
+      Example reduces :
+        (app (app equal (const 4)) (const 4)) -->* (const 1).
+        Proof.
+          unfold equal. normalize.
+        Qed.
+        
+        Example reduces2 :
+          (app (app equal (const 4)) (const 5)) -->* (const 0).
+        Proof.
+          unfold equal. normalize.
+        Qed.
+        
+    End FixTest3.
+    
+    Module FixTest4.
+      
+      Definition eotest :=
+        tlet evenodd
+             (tfix
+                (abs eo (Prod (Arrow Nat Nat) (Arrow Nat Nat))
+                     (pair
+                        (abs n Nat
+                             (test0 (var n)
+                                    (const 1)
+                                    (app (snd (var eo)) (prd (var n)))))
+                        (abs n Nat
+                             (test0 (var n)
+                                    (const 0)
+                                    (app (fst (var eo)) (prd (var n))))))))
+             (tlet even (fst (var evenodd))
+                   (tlet odd (snd (var evenodd))
+                         (pair
+                            (app (var even) (const 3))
+                            (app (var even) (const 4))))).
+      
+      Example typechecks :
+        empty |- eotest ? (Prod Nat Nat).
+      Proof.
+          unfold eotest.
+          eapply T_Let.
+          - apply T_Fix. apply T_Abs. apply T_Pair.
+            + apply T_Abs. apply T_Test0.
+              * apply T_Var. rewrite update_eq. reflexivity.
+              * apply T_Nat.
+              * eapply T_App.
+                { eapply T_Snd. apply T_Var. rewrite update_neq.
+                  rewrite update_eq. reflexivity.
+                  intro H; inversion H.
+                }
+                { apply T_Pred. apply T_Var. rewrite update_eq. reflexivity. }
+            + apply T_Abs. apply T_Test0.
+              * apply T_Var. rewrite update_eq. reflexivity.
+              * apply T_Nat.
+              * eapply T_App.
+                { eapply T_Fst. apply T_Var. rewrite update_neq.
+                  rewrite update_eq. reflexivity.
+                  intro H; inversion H.
+                }
+                { apply T_Pred. apply T_Var. rewrite update_eq. auto. }
+          - eapply T_Let.
+            + eapply T_Fst. apply T_Var. rewrite update_eq. auto.
+            + eapply T_Let.
+              * eapply T_Snd. apply T_Var. rewrite update_neq.
+                rewrite update_eq. auto. intro H; inversion H.
+              * apply T_Pair.
+                { eapply T_App.
+                  { apply T_Var. rewrite update_neq. rewrite update_eq.
+                    auto. intro H; inversion H. }
+                  { apply T_Nat. }
+                }
+                { eapply T_App.
+                  { apply T_Var. rewrite update_neq. rewrite update_eq.
+                    auto. intro H; inversion H.
+                  }
+                  { apply T_Nat. }
+                } 
+        Qed.
+
+      Example reduces :
+        eotest -->* (pair (const 0) (const 1)).
+      Proof.
+        unfold eotest. normalize.
+      Qed.
+      
+    End FixTest4.
+  End Examples.
