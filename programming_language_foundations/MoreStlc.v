@@ -40,9 +40,9 @@ Module STLCExtended.
   (* unit *)                                           
   | unit : tm
   (* pairs *)
-  | pair : tm -> tm -> tm
-  | fst : tm -> tm
-  | snd : tm -> tm
+  | tpair : tm -> tm -> tm
+  | tfst : tm -> tm
+  | tsnd : tm -> tm
   (* let *)
   | tlet : string -> tm -> tm -> tm
           (* i.e., let x = t1 in t2*)
@@ -87,14 +87,14 @@ Module STLCExtended.
               else if eqb_string x y2 then t3
                    else (subst x s t3))
     | unit => unit
-    | pair t1 t2 =>
-      pair (subst x s t1) (subst x s t2)
-    | fst t1 =>
-      fst (subst x s t1)
-    | snd t1 =>
-      snd (subst x s t1)
+    | tpair t1 t2 =>
+      tpair (subst x s t1) (subst x s t2)
+    | tfst t1 =>
+      tfst (subst x s t1)
+    | tsnd t1 =>
+      tsnd (subst x s t1)
     | tlet y t1 t2 =>
-      if eqb_string x y then tlet y t1 t2
+      if eqb_string x y then tlet y (subst x s t1) t2
       else tlet y (subst x s t1) (subst x s t2)
     | tfix tf =>
       tfix (subst x s tf)
@@ -128,7 +128,7 @@ Module STLCExtended.
   | v_pair : forall v1 v2,
       value v1 ->
       value v2 ->
-      value (pair v1 v2).
+      value (tpair v1 v2).
 
   Hint Constructors value : db.
 
@@ -209,25 +209,25 @@ Module STLCExtended.
          --> (subst x2 vl (subst x1 v1 t3))
   | ST_Pair1 : forall t1 t1' t2,
       t1 --> t1' ->
-      (pair t1 t2) --> (pair t1' t2)
+      (tpair t1 t2) --> (tpair t1' t2)
   | ST_Pair2 : forall v1 t2 t2',
       value v1 ->
       t2 --> t2' ->
-      (pair v1 t2) --> (pair v1 t2')
+      (tpair v1 t2) --> (tpair v1 t2')
   | ST_Fst : forall t1 t1',
       t1 --> t1' ->
-      (fst t1) --> (fst t1')
+      (tfst t1) --> (tfst t1')
   | ST_FstPair : forall v1 v2,
       value v1 ->
       value v2 ->
-      (fst (pair v1 v2)) --> v1
+      (tfst (tpair v1 v2)) --> v1
   | ST_Snd : forall t1 t1',
       t1 --> t1' ->
-      (snd t1) --> (snd t1')
+      (tsnd t1) --> (tsnd t1')
   | ST_SndPair : forall v1 v2,
       value v1 ->
       value v2 ->
-      (snd (pair v1 v2)) --> v2
+      (tsnd (tpair v1 v2)) --> v2
   | ST_Let1 : forall x t1 t1' t2,
       t1 --> t1' ->
       (tlet x t1 t2) --> (tlet x t1' t2)
@@ -306,13 +306,13 @@ Module STLCExtended.
   | T_Pair : forall Gamma t1 T1 t2 T2,
       Gamma |- t1 ? T1 ->
       Gamma |- t2 ? T2 ->
-      Gamma |- (pair t1 t2) ? (Prod T1 T2)
+      Gamma |- (tpair t1 t2) ? (Prod T1 T2)
   | T_Fst : forall Gamma t T1 T2,
       Gamma |- t ? (Prod T1 T2) ->
-      Gamma |- (fst t) ? T1
+      Gamma |- (tfst t) ? T1
   | T_Snd : forall Gamma t T1 T2,
       Gamma |- t ? (Prod T1 T2) ->
-      Gamma |- (snd t) ? T2
+      Gamma |- (tsnd t) ? T2
   | T_Let : forall Gamma x t1 T1 t2 T2,
       Gamma |- t1 ? T1 ->
       (x |-> T1; Gamma) |- t2 ? T2 ->
@@ -381,10 +381,10 @@ Module STLCExtended.
     Module Prodtest.
 
       Definition test :=
-        snd
-          (fst
-             (pair
-                (pair
+        tsnd
+          (tfst
+             (tpair
+                (tpair
                    (const 5)
                    (const 6))
                 (const 7))).
@@ -478,7 +478,7 @@ Module STLCExtended.
                (tcase (var x)
                       n (var n)
                       n (test0 (var n) (const 1) (const 0))))
-          (pair
+          (tpair
              (app (var processSum) (tinl Nat (const 5)))
              (app (var processSum) (tinr Nat (const 5)))).
 
@@ -504,7 +504,7 @@ Module STLCExtended.
       Qed.
 
       Example reduces :
-        test -->* (pair (const 5) (const 0)).
+        test -->* (tpair (const 5) (const 0)).
       Proof.
         unfold test. normalize.
       Qed.
@@ -929,18 +929,18 @@ Module STLCExtended.
         tlet evenodd
              (tfix
                 (abs eo (Prod (Arrow Nat Nat) (Arrow Nat Nat))
-                     (pair
+                     (tpair
                         (abs n Nat
                              (test0 (var n)
                                     (const 1)
-                                    (app (snd (var eo)) (prd (var n)))))
+                                    (app (tsnd (var eo)) (prd (var n)))))
                         (abs n Nat
                              (test0 (var n)
                                     (const 0)
-                                    (app (fst (var eo)) (prd (var n))))))))
-             (tlet even (fst (var evenodd))
-                   (tlet odd (snd (var evenodd))
-                         (pair
+                                    (app (tfst (var eo)) (prd (var n))))))))
+             (tlet even (tfst (var evenodd))
+                   (tlet odd (tsnd (var evenodd))
+                         (tpair
                             (app (var even) (const 3))
                             (app (var even) (const 4))))).
       
@@ -988,10 +988,425 @@ Module STLCExtended.
         Qed.
 
       Example reduces :
-        eotest -->* (pair (const 0) (const 1)).
+        eotest -->* (tpair (const 0) (const 1)).
       Proof.
         unfold eotest. normalize.
       Qed.
       
     End FixTest4.
   End Examples.
+
+  Theorem progress : forall t T,
+      empty |- t ? T ->
+      value t \/ exists t', t --> t'.
+  Proof.
+    intros t.
+    induction t.
+    - intros T H. inversion H.
+      rewrite apply_empty in H2. inversion H2.
+    - intros T H. inversion H. subst.
+      apply IHt1 in H3. destruct H3.
+      + apply IHt2 in H5. destruct H5.
+        * right. inversion H0.
+          { eexists. apply ST_AppAbs. apply H1. }
+          { rewrite <- H2 in H. inversion H. inversion H6. }
+          { rewrite <- H3 in H. inversion H. inversion H7. }
+          { rewrite <- H3 in H. inversion H. inversion H7. }
+          { rewrite <- H2 in H. inversion H. inversion H6. }
+          { rewrite <- H4 in H. inversion H. inversion H8. }
+          { rewrite <- H2 in H. inversion H. inversion H6. }
+          { rewrite <- H4 in H. inversion H. inversion H8. }
+        * right. destruct H1. eexists.
+          apply (ST_App2 _ _ _ H0 H1).
+      + destruct H0. right. eexists. apply (ST_App1 _ _ _ H0).
+    - intros T H. left. apply v_abs.
+    - intros T H. left. apply v_nat.
+    - intros T H. right. inversion H; subst. apply IHt in H2.
+      destruct H2.
+      + inversion H. subst. inversion H0; subst; try inversion H3.
+        eexists. apply ST_SuccNat.
+      + destruct H0. exists (scc x). apply (ST_Succ1 _ _ H0).
+    - intros T H. right. inversion H; subst. apply IHt in H2.
+      destruct H2.
+      + inversion H. subst. inversion H0; subst; try inversion H3.
+        eexists. apply ST_PredNat.
+      + destruct H0. exists (prd x). apply (ST_Pred _ _ H0).
+    - intros T H. right. inversion H; subst. apply IHt1 in H3.
+      apply IHt2 in H5. destruct H3.
+      + destruct H5.
+        * inversion H; subst.
+          inversion H5; subst; try (inversion H0).
+          inversion H6; subst; try (inversion H1).
+          eexists. apply ST_Mulconsts.
+        * destruct H1. eexists. apply ST_Mult2; eassumption.
+      + destruct H0. eexists. apply ST_Mult1. apply H0.
+    - intros T H. right. inversion H; subst.
+      assert (H8: value t1 \/ (exists t' : tm, t1 --> t')).
+      { apply (IHt1 Nat). apply H4. }
+      destruct H8.
+      + inversion H0; subst; try inversion H4.
+        destruct n1; subst.
+        * eexists. apply ST_Test0Zero.
+        * eexists. apply ST_Test0Nonzero.
+      + destruct H0. eexists. apply ST_Test01. apply H0.
+    - intros T H. inversion H; subst.
+      assert (H5 : value t0 \/ (exists t' : tm, t0 --> t')).
+      { eapply IHt. apply H4. }
+      destruct H5.
+      + left. apply v_inl. apply H0.
+      + right. destruct H0. eexists. apply ST_Inl. apply H0.
+    - intros T H. inversion H; subst.
+      assert (H5 : value t0 \/ (exists t' : tm, t0 --> t')).
+      { eapply IHt. apply H4. }
+      destruct H5.
+      + left. apply v_inr. apply H0.
+      + right. destruct H0. eexists. apply ST_Inr. apply H0.
+    - intros T H. right. inversion H; subst.
+      assert (H10: value t1 \/ (exists t' : tm, t1 --> t')).
+      { apply (IHt1 (Sum T1 T2) H7). }
+      inversion H7; subst.
+      + inversion H0.
+      + destruct H10.
+        * inversion H2.
+        * destruct H2. eexists. apply ST_Case. apply H2.
+      + destruct H10.
+        * inversion H3.
+        * destruct H3. eexists. eapply ST_Case. apply H3.
+      + destruct H10.
+        * eexists. apply ST_CaseInl. inversion H0. apply H2.
+        * destruct H0. eexists. apply ST_Case. apply H0.
+      + destruct H10.
+        * eexists. apply ST_CaseInr. inversion H0. apply H2.
+        * destruct H0. eexists. apply ST_Case. apply H0.
+      + destruct H10.
+        * inversion H3.
+        * destruct H3. eexists. eapply ST_Case. apply H3.
+      + destruct H10.
+        * inversion H3.
+        * destruct H3. eexists. eapply ST_Case. apply H3.
+      + destruct H10.
+        * inversion H1.
+        * destruct H1. eexists. eapply ST_Case. apply H1.
+      + destruct H10.
+        * inversion H1.
+        * destruct H1. eexists. eapply ST_Case. apply H1.
+      + destruct H10.
+        * inversion H2.
+        * destruct H2. eexists. eapply ST_Case. apply H2.
+      + destruct H10.
+        * inversion H1.
+        * destruct H1. eexists. eapply ST_Case. apply H1.
+    - intros T H. left. apply v_lnil.
+    - intros T H. inversion H; subst.
+      assert (H6 : value t1 \/ (exists t' : tm, t1 --> t')).
+      { apply (IHt1 T1 H3). }
+      assert (H7 : value t2 \/ (exists t' : tm, t2 --> t')).
+      { apply (IHt2 (List T1) H5). }
+      destruct H6.
+      + destruct H7.
+        * left. apply v_lcons; assumption.
+        * right. destruct H1. eexists. apply ST_Cons2; eassumption.
+      + right. destruct H0. eexists. apply ST_Cons1; eassumption.
+    - intros T H. inversion H; subst.
+      assert (H10 : value t1 \/ (exists t' : tm, t1 --> t')).
+      { apply (IHt1 (List T1) H7). }
+      destruct H10.
+      + right. inversion H0; subst; try inversion H7.
+        * subst. eexists. apply ST_LcaseNil.
+        * subst. eexists. apply ST_LcaseCons; assumption.
+      + right. destruct H0. eexists. apply ST_Lcase1. apply H0.
+    - intros T H. left. apply v_unit.
+    - intros T H. inversion H; subst.
+      assert (H6 : value t1 \/ (exists t' : tm, t1 --> t')).
+      { apply (IHt1 _ H3). }
+      assert (H7 : value t2 \/ (exists t' : tm, t2 --> t')).
+      { apply (IHt2 _ H5). }
+      destruct H6.
+      + destruct H7.
+        * left. apply v_pair; assumption.
+        * right. destruct H1. eexists. apply ST_Pair2; eassumption.
+      + destruct H0. right. eexists. apply ST_Pair1. apply H0.
+    - intros T H. inversion H; subst.
+      assert (H3 : value t \/ (exists t' : tm, t --> t')).
+      { apply (IHt _ H2). }
+      destruct H3.
+      + inversion H0; subst; inversion H2; subst. right.
+        eexists. apply ST_FstPair; assumption.
+      + destruct H0. right. eexists. apply ST_Fst. apply H0.
+    - intros T H. inversion H; subst.
+      assert (H3 : value t \/ (exists t' : tm, t --> t')).
+      { apply (IHt _ H2). }
+      destruct H3.
+      + inversion H0; subst; inversion H2; subst. right.
+        eexists. apply ST_SndPair; assumption.
+      + destruct H0. right. eexists. apply ST_Snd. apply H0.
+    - intros T H. inversion H; subst.
+      assert (H7 : value t1 \/ (exists t' : tm, t1 --> t')).
+      { apply (IHt1 _ H5). }
+      destruct H7.
+      + right. eexists. apply ST_LetValue. apply H0.
+      + destruct H0. right. eexists. apply ST_Let1. apply H0.
+    - intros T H. inversion H; subst.
+      assert (H3 : value t \/ (exists t' : tm, t --> t')).
+      { apply (IHt _ H2). }
+      destruct H3.
+      + inversion H0; subst; try inversion H2; subst.
+        right. eexists. apply ST_FixAbs.
+      + destruct H0. right. eexists. apply ST_Fix1. apply H0.
+  Qed.
+
+  Inductive appears_free_in : string -> tm -> Prop :=
+  | afi_var : forall x,
+      appears_free_in x (var x)
+  | afi_app1 : forall x t1 t2,
+      appears_free_in x t1 -> appears_free_in x (app t1 t2)
+  | afi_app2 : forall x t1 t2,
+      appears_free_in x t2 -> appears_free_in x (app t1 t2)
+  | afi_abs : forall x y T11 t12,
+        y <> x ->
+        appears_free_in x t12 ->
+        appears_free_in x (abs y T11 t12)
+  (* numbers *)
+  | afi_succ : forall x t,
+     appears_free_in x t ->
+     appears_free_in x (scc t)
+  | afi_pred : forall x t,
+     appears_free_in x t ->
+     appears_free_in x (prd t)
+  | afi_mult1 : forall x t1 t2,
+     appears_free_in x t1 ->
+     appears_free_in x (mlt t1 t2)
+  | afi_mult2 : forall x t1 t2,
+     appears_free_in x t2 ->
+     appears_free_in x (mlt t1 t2)
+  | afi_test01 : forall x t1 t2 t3,
+     appears_free_in x t1 ->
+     appears_free_in x (test0 t1 t2 t3)
+  | afi_test02 : forall x t1 t2 t3,
+     appears_free_in x t2 ->
+     appears_free_in x (test0 t1 t2 t3)
+  | afi_test03 : forall x t1 t2 t3,
+     appears_free_in x t3 ->
+     appears_free_in x (test0 t1 t2 t3)
+  (* sums *)
+  | afi_inl : forall x t T,
+      appears_free_in x t ->
+      appears_free_in x (tinl T t)
+  | afi_inr : forall x t T,
+      appears_free_in x t ->
+      appears_free_in x (tinr T t)
+  | afi_case0 : forall x t0 x1 t1 x2 t2,
+      appears_free_in x t0 ->
+      appears_free_in x (tcase t0 x1 t1 x2 t2)
+  | afi_case1 : forall x t0 x1 t1 x2 t2,
+      x1 <> x ->
+      appears_free_in x t1 ->
+      appears_free_in x (tcase t0 x1 t1 x2 t2)
+  | afi_case2 : forall x t0 x1 t1 x2 t2,
+      x2 <> x ->
+      appears_free_in x t2 ->
+      appears_free_in x (tcase t0 x1 t1 x2 t2)
+  (* lists *)
+  | afi_cons1 : forall x t1 t2,
+     appears_free_in x t1 ->
+     appears_free_in x (tcons t1 t2)
+  | afi_cons2 : forall x t1 t2,
+     appears_free_in x t2 ->
+     appears_free_in x (tcons t1 t2)
+  | afi_lcase1 : forall x t1 t2 y1 y2 t3,
+     appears_free_in x t1 ->
+     appears_free_in x (tlcase t1 t2 y1 y2 t3)
+  | afi_lcase2 : forall x t1 t2 y1 y2 t3,
+     appears_free_in x t2 ->
+     appears_free_in x (tlcase t1 t2 y1 y2 t3)
+  | afi_lcase3 : forall x t1 t2 y1 y2 t3,
+     y1 <> x ->
+     y2 <> x ->
+     appears_free_in x t3 ->
+     appears_free_in x (tlcase t1 t2 y1 y2 t3)
+  (* pairs *)
+  | afi_pairL : forall x t1 t2,
+      appears_free_in x t1 ->
+      appears_free_in x (tpair t1 t2)
+  | afi_pairR : forall x t1 t2,
+      appears_free_in x t2 ->
+      appears_free_in x (tpair t1 t2)
+  | afi_fst : forall x t,
+      appears_free_in x t ->
+      appears_free_in x (tfst t)
+  | afi_snd : forall x t,
+      appears_free_in x t ->
+      appears_free_in x (tsnd t)
+  (* let *)
+  | afi_let1 : forall x y t1 t2,
+      appears_free_in x t1 ->
+      appears_free_in x (tlet y t1 t2)
+  | afi_let2 : forall x y t1 t2,
+      y <> x ->
+      appears_free_in x t2 ->
+      appears_free_in x (tlet y t1 t2)
+  (* fix *)
+  | afi_fix1 : forall x xf,
+      appears_free_in x xf ->
+      appears_free_in x (tfix xf).
+Hint Constructors appears_free_in : db.
+
+Lemma context_invariance : forall Gamma Gamma' t S,
+     Gamma |- t ? S ->
+     (forall x, appears_free_in x t -> Gamma x = Gamma' x) ->
+     Gamma' |- t ? S.
+Proof with eauto 30 with db.
+  intros. generalize dependent Gamma'.
+  induction H; intros Gamma' Heqv...
+  - apply T_Var... rewrite <- Heqv...
+  - apply T_Abs... apply IHhas_type. intros y Hafi.
+    unfold update, t_update.
+    destruct (eqb_stringP x y)...
+  - eapply T_Case...
+    + apply IHhas_type2. intros y Hafi.
+      unfold update, t_update.
+      destruct (eqb_stringP x1 y)...
+    + apply IHhas_type3. intros y Hafi.
+      unfold update, t_update.
+      destruct (eqb_stringP x2 y)...
+  - eapply T_Lcase... apply IHhas_type3. intros y Hafi.
+    unfold update, t_update.
+    destruct (eqb_stringP x1 y)...
+    destruct (eqb_stringP x2 y)...
+  - eapply T_Let...
+    apply IHhas_type2.
+    intros y Hafi. unfold update, t_update.
+    destruct (eqb_stringP x y)...
+Qed.
+
+Lemma free_in_context : forall x t T Gamma,
+   appears_free_in x t ->
+   Gamma |- t ? T ->
+   exists T', Gamma x = Some T'.
+Proof with eauto with db.
+  intros x t T Gamma Hafi Htyp.
+  induction Htyp; inversion Hafi; subst...
+  - destruct IHHtyp as [T' Hctx]... exists T'.
+    unfold update, t_update in Hctx.
+    rewrite false_eqb_string in Hctx...
+  - destruct IHHtyp2 as [T' Hctx]... exists T'.
+    unfold update, t_update in Hctx.
+    rewrite false_eqb_string in Hctx...
+  - destruct IHHtyp3 as [T' Hctx]... exists T'.
+    unfold update, t_update in Hctx.
+    rewrite false_eqb_string in Hctx...
+  - clear Htyp1 IHHtyp1 Htyp2 IHHtyp2.
+    destruct IHHtyp3 as [T' Hctx]... exists T'.
+    unfold update, t_update in Hctx.
+    rewrite false_eqb_string in Hctx...
+    rewrite false_eqb_string in Hctx...
+  - destruct IHHtyp2 as [T' Hctx]... exists T'.
+    unfold update, t_update in Hctx.
+    rewrite false_eqb_string in Hctx...
+Qed.
+
+Lemma substitution_preserves_typing : forall Gamma x U v t S,
+    (x |-> U; Gamma) |- t ? S ->
+    empty |- v ? U ->
+    Gamma |- ([x := v]t) ? S.
+Proof with eauto with db.
+  intros Gamma x U v t S Htypt Htypv.
+  generalize dependent Gamma. generalize dependent S.
+  induction t; intros S Gamma Htypt; simpl; inversion Htypt; subst...
+  - simpl. rename s into y.
+    unfold update, t_update in H1.
+    destruct (eqb_stringP x y).
+    + subst. inversion H1; subst. clear H1.
+      eapply context_invariance...
+      intros x Hcontra.
+      destruct (free_in_context _ _ S empty Hcontra) as [T' HT']...
+      inversion HT'.
+    + apply T_Var...
+  - rename s into y. rename t into T11.
+    apply T_Abs...
+    destruct (eqb_stringP x y) as [Hxy | Hxy].
+    + eapply context_invariance...
+      subst.
+      intros x Hafi. unfold update, t_update.
+      destruct (eqb_string y x)...
+    + apply IHt. eapply context_invariance...
+      intros z Hafi. unfold update, t_update.
+      destruct (eqb_stringP y z) as [Hyz | Hyz]...
+      subst.
+      rewrite false_eqb_string...
+  - rename s into x1. rename s0 into x2.
+    eapply T_Case...
+    + destruct (eqb_stringP x x1) as [Hxx1 | Hxx1].
+      * eapply context_invariance...
+        subst.
+        intros z Hafi. unfold update, t_update.
+        destruct (eqb_string x1 z)...
+      * apply IHt2. eapply context_invariance...
+        intros z Hafi. unfold update, t_update.
+        destruct (eqb_stringP x1 z) as [Hx1z | Hx1z]...
+        subst.
+        rewrite false_eqb_string...
+    + destruct (eqb_stringP x x2) as [Hxx2 |Hxx2].
+      * eapply context_invariance...
+        subst.
+        intros z Hafi. unfold update, t_update.
+        destruct (eqb_string x2 z)...
+      * apply IHt3. eapply context_invariance...
+        intros z Hafi. unfold update, t_update.
+        destruct (eqb_stringP x2 z)...
+        subst. rewrite false_eqb_string...
+  - rename s into y1. rename s0 into y2.
+    eapply T_Lcase...
+    destruct (eqb_stringP x y1).
+    + (* x = y1 *)
+      simpl.
+      eapply context_invariance...
+      subst.
+      intros z Hafi. unfold update, t_update.
+      destruct (eqb_stringP y1 z)...
+    + (* x <> y1 *)
+      destruct (eqb_stringP x y2).
+      * (* x = y2 *)
+        eapply context_invariance...
+        subst.
+        intros z Hafi. unfold update, t_update.
+        destruct (eqb_stringP y2 z)...
+      * (* x <> y2 *)
+        apply IHt3. eapply context_invariance...
+        intros z Hafi. unfold update, t_update.
+        destruct (eqb_stringP y1 z)...
+        subst. rewrite false_eqb_string...
+        destruct (eqb_stringP y2 z)...
+        subst. rewrite false_eqb_string...
+  - rename s into y.
+    destruct (eqb_stringP x y)...
+    + subst. rewrite update_shadow in H5.
+      eapply T_Let...
+    + rewrite update_permute in H5.
+      * apply IHt2 in H5. eapply T_Let...
+      * apply n.
+Qed.
+
+Theorem perservation : forall t t' T,
+    empty |- t ? T ->
+    t --> t' ->
+    empty |- t' ? T.
+Proof with eauto with db.
+  intros t t' T HT. generalize dependent t'.
+  remember empty as Gamma.
+  induction HT; intros t' HE; subst; inversion HE; subst...
+  - (* T_App *)
+    apply substitution_preserves_typing with T1...
+    inversion HT1...
+  - inversion HT1; subst...
+    eapply substitution_preserves_typing...
+  - inversion HT1; subst...
+    eapply substitution_preserves_typing...
+  - inversion HT1; subst.
+    apply substitution_preserves_typing with (List T1)...
+    apply substitution_preserves_typing with T1...
+  - inversion HT; subst. apply H5.
+  - inversion HT; subst. apply H7.
+  - eapply substitution_preserves_typing...
+  - inversion HT; subst. eapply substitution_preserves_typing...
+Qed.
