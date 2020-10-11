@@ -489,3 +489,17 @@ Proof with eauto with db.
       * subst. inversion H. exists t2. apply ST_SndPair; assumption.
     + right. inversion H as [t' Hstp]. exists (snd t')...
 Qed.
+
+Lemma typing_inversion_abs : forall Gamma x S1 t2 T,
+    Gamma |- (abs x S1 t2) \in T ->
+    exists S2,
+      Arrow S1 S2 <: T
+      /\ (x |-> S1; Gamma) |- t2 \in S2.
+Proof with eauto with db.
+  intros Gamma x S1 t2 T H.
+  remember (abs x S1 t2) as t.
+  induction H; inversion Heqt; subst; intros; try solve_by_invert.
+  - exists T12...
+  - destruct IHhas_type as [S2 [Hsub Hty]]...
+Qed.
+
