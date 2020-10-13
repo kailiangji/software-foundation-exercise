@@ -229,7 +229,7 @@ Inductive has_type : context -> tm -> ty -> Prop :=
   | T_Pair : forall t1 t2 T1 T2 Gamma,
       Gamma |- t1 \in T1 ->
       Gamma |- t2 \in T2 ->
-                      Gamma |- (pair t1 t2) \in Prod T1 T2
+      Gamma |- (pair t1 t2) \in Prod T1 T2
   | T_Fst : forall Gamma t T1 T2,
       Gamma |- t \in (Prod T1 T2) ->
       Gamma |- (fst t) \in T1
@@ -503,3 +503,262 @@ Proof with eauto with db.
   - destruct IHhas_type as [S2 [Hsub Hty]]...
 Qed.
 
+Lemma typing_inversion_var : forall Gamma x T,
+    Gamma |- (var x) \in T ->
+    exists S,
+      Gamma x = Some S /\ S <: T.
+Proof with eauto with db.
+  intros Gamma x T H.
+  remember (var x) as v.
+  induction H; inversion Heqv; subst; intros; try solve_by_invert.
+  - exists T...
+  - destruct IHhas_type as [S1 [Hsub Hty]]...
+Qed.
+
+Lemma typing_inversion_app : forall Gamma t1 t2 T2,
+    Gamma |- (app t1 t2) \in T2 ->
+    exists T1,
+      Gamma |- t1 \in (Arrow T1 T2) /\
+      Gamma |- t2 \in T1.
+Proof with eauto with db.
+  intros Gamma t1 t2 T2 H.
+  remember (app t1 t2) as Tapp.
+  induction H; inversion HeqTapp; subst; intros; try solve_by_invert.
+  - exists T1...
+  - destruct IHhas_type as [T1 [Habs Ht]]...
+Qed.
+
+Lemma typing_inversion_true : forall Gamma T,
+    Gamma |- tru \in T ->
+    Bool <: T.
+Proof with eauto with db.
+  intros Gamma T H.
+  remember tru as tt.
+  induction H; inversion Heqtt; subst... 
+Qed.
+
+Lemma typing_inversion_false : forall Gamma T,
+    Gamma |- fls \in T ->
+    Bool <: T.
+Proof with eauto with db.
+  intros Gamma T H.
+  remember fls as tf.
+  induction H; inversion Heqtf; subst...
+Qed.
+
+Lemma typing_inversion_if : forall Gamma t1 t2 t3 T,
+    Gamma |- (test t1 t2 t3) \in T ->
+    Gamma |- t1 \in Bool
+    /\ Gamma |- t2 \in T
+    /\ Gamma |- t3 \in T.
+Proof with eauto with db.
+  intros Gamma t1 t2 t3 T H.
+  remember (test t1 t2 t3) as ttest.
+  induction H; inversion Heqttest; subst...
+  destruct IHhas_type as [H2 [H3 H4]]...
+Qed.
+
+Lemma typing_inversion_unit : forall Gamma T,
+    Gamma |- unit \in T ->
+    Unit <: T.
+Proof with eauto with db.
+  intros Gamma T H.
+  remember unit as tu.
+  induction H; inversion Heqtu; subst...
+Qed.
+
+Lemma typing_inversion_pair : forall Gamma t1 t2 T,
+    Gamma |- (pair t1 t2) \in T ->
+    exists T1 T2,
+    Gamma |- t1 \in T1 /\ Gamma |- t2 \in T2 /\ Prod T1 T2 <: T.
+Proof with eauto with db.
+  intros Gamma t1 t2 T H.
+  remember (pair t1 t2) as tp.
+  induction H; inversion Heqtp; subst...
+  destruct IHhas_type as [T1 [T2 [H2 [H3 H4]]]]...
+  exists T1, T2...
+Qed.
+
+Lemma typing_inversion_fst : forall Gamma t T1,
+    Gamma |- fst t \in T1 ->
+    exists T2,
+    Gamma |- t \in Prod T1 T2.
+Proof with eauto with db.
+  intros Gamma t T1 H.
+  remember (fst t) as ft.
+  induction H; inversion Heqft; subst...
+  destruct IHhas_type as [T2 H2]...
+Qed.
+
+Lemma typing_inversion_snd : forall Gamma t T2,
+    Gamma |- snd t \in T2 ->
+    exists T1,
+    Gamma |- t \in Prod T1 T2.
+Proof with eauto with db.
+  intros Gamma t T1 H.
+  remember (snd t) as st.
+  induction H; inversion Heqst; subst...
+  destruct IHhas_type as [T2 H2]...
+Qed.
+
+Lemma abs_arrow : forall x S1 s2 T1 T2,
+  empty |- (abs x S1 s2) \in (Arrow T1 T2) ->
+  T1 <: S1
+  /\ (x |-> S1 ; empty) |- s2 \in T2.
+Proof with eauto with db.
+  intros x S1 s2 T1 T2 Hty.
+  apply typing_inversion_abs in Hty.
+  inversion Hty as [S2 [Hsub Hty1]].
+  apply sub_inversion_arrow in Hsub.
+  inversion Hsub as [U1 [U2 [Heq [Hsub1 Hsub2]]]].
+  inversion Heq; subst...
+Qed.
+
+Inductive appears_free_in : string -> tm -> Prop :=
+  | afi_var : forall x,
+      appears_free_in x (var x)
+  | afi_app1 : forall x t1 t2,
+      appears_free_in x t1 -> appears_free_in x (app t1 t2)
+  | afi_app2 : forall x t1 t2,
+      appears_free_in x t2 -> appears_free_in x (app t1 t2)
+  | afi_abs : forall x y T11 t12,
+        y <> x ->
+        appears_free_in x t12 ->
+        appears_free_in x (abs y T11 t12)
+  | afi_test1 : forall x t1 t2 t3,
+      appears_free_in x t1 ->
+      appears_free_in x (test t1 t2 t3)
+  | afi_test2 : forall x t1 t2 t3,
+      appears_free_in x t2 ->
+      appears_free_in x (test t1 t2 t3)
+  | afi_test3 : forall x t1 t2 t3,
+      appears_free_in x t3 ->
+      appears_free_in x (test t1 t2 t3)
+                      | afi_pairL : forall x t1 t2,
+      appears_free_in x t1 ->
+      appears_free_in x (pair t1 t2)
+  | afi_pairR : forall x t1 t2,
+      appears_free_in x t2 ->
+      appears_free_in x (pair t1 t2)
+  | afi_fst : forall x t,
+      appears_free_in x t ->
+      appears_free_in x (fst t)
+  | afi_snd : forall x t,
+      appears_free_in x t ->
+      appears_free_in x (snd t)
+.
+Hint Constructors appears_free_in : db.
+
+Lemma context_invariance : forall Gamma Gamma' t S,
+     Gamma |- t \in S ->
+     (forall x, appears_free_in x t -> Gamma x = Gamma' x) ->
+     Gamma' |- t \in S.
+Proof with eauto with db.
+  intros. generalize dependent Gamma'.
+  induction H; intros Gamma' Heqv...
+  - apply T_Var... rewrite <- Heqv...
+  - apply T_Abs... apply IHhas_type. intros x0 Hafi.
+    unfold update, t_update. destruct (eqb_stringP x x0)...
+  - eapply T_App...
+  - apply T_Test...
+  - apply T_Pair...
+Qed.
+
+Lemma free_in_context : forall x t T Gamma,
+   appears_free_in x t ->
+   Gamma |- t \in T ->
+   exists T', Gamma x = Some T'.
+Proof with eauto with db.
+  intros x t T Gamma Hafi Htyp.
+  induction Htyp; subst; inversion Hafi; subst...
+  destruct (IHHtyp H4) as [T Hctx]. exists T.
+  unfold update, t_update in Hctx.
+  rewrite <- eqb_string_false_iff in H2.
+  rewrite H2 in Hctx...
+Qed.
+
+Lemma substitution_preserves_typing : forall Gamma x U v t S,
+    (x |-> U; Gamma) |- t \in S ->
+    empty |- v \in U ->
+    Gamma |- [x:=v]t \in S.
+Proof with eauto with db.
+  intros Gamma x U v t S Htypt Htypv.
+  generalize dependent S. generalize dependent Gamma.
+  induction t; intros; simpl.
+  - rename s into y.
+    destruct (typing_inversion_var _ _ _ Htypt) as
+        [T [Hctx Hsub]].
+    unfold update, t_update in Hctx.
+    destruct (eqb_stringP x y) as [Hxy|Hxy]; eauto; subst...
+    inversion Hctx; subst. clear Hctx.
+    apply context_invariance with empty...
+    intros x Hcontra.
+    destruct (free_in_context _ _ S empty Hcontra) as
+        [T' HT']...
+    inversion HT'.
+  - destruct (typing_inversion_app _ _ _ _ Htypt) as
+        [T1 [Htypt1 Htypt2]].
+    eapply T_App...
+  - rename s into y. rename t into T1.
+    destruct (typing_inversion_abs _ _ _ _ _ Htypt)
+      as [T2 [Hsub Htypt2]].
+    apply T_Sub with (Arrow T1 T2)... apply T_Abs...
+    destruct (eqb_stringP x y) as [Hxy|Hxy].
+    + eapply context_invariance...
+      subst.
+      intros x Hafi. unfold update, t_update.
+      destruct (eqb_string y x)...
+    + apply IHt. eapply context_invariance...
+      intros z Hafi. unfold update, t_update.
+      destruct (eqb_stringP y z)...
+      subst.
+      rewrite <- eqb_string_false_iff in Hxy. rewrite Hxy...
+  - assert (Bool <: S)
+      by apply (typing_inversion_true _ _ Htypt)...
+  - assert (Bool <: S)
+      by apply (typing_inversion_false _ _ Htypt)...
+  - assert ((x |-> U; Gamma) |- t1 \in Bool
+         /\ (x |-> U; Gamma) |- t2 \in S
+         /\ (x |-> U; Gamma) |- t3 \in S)
+      by apply (typing_inversion_if _ _ _ _ _ Htypt).
+    inversion H as [H1 [H2 H3]].
+    apply IHt1 in H1. apply IHt2 in H2. apply IHt3 in H3.
+    auto with db.
+  - assert (Unit <: S)
+      by apply (typing_inversion_unit _ _ Htypt)...
+  - destruct (typing_inversion_pair _ _ _ _ Htypt) as
+        [T1 [T2 [H1 [H2 H3]]]].
+    apply T_Sub with (Prod T1 T2)...
+  - destruct (typing_inversion_fst _ _ _ Htypt) as
+        [T2 H2]...
+  - destruct (typing_inversion_snd _ _ _ Htypt) as
+        [T1 H2]...
+Qed.
+
+Theorem preservation : forall t t' T,
+    empty |- t \in T ->
+    t --> t' ->
+    empty |- t' \in T.
+Proof with eauto with db.
+  intros t t' T HT.
+  remember empty as Gamma. generalize dependent HeqGamma.
+  generalize dependent t'.
+  induction HT; intros t' HeqGamma HE; subst; inversion HE; subst...
+  - apply (abs_arrow _ _ _ _ _) in HT1.
+    destruct HT1 as [Hsub Htypt].
+    eapply substitution_preserves_typing.
+    + apply Htypt.
+    + eapply T_Sub. apply HT2. apply Hsub.
+  - apply (typing_inversion_pair _ _ ) in HT.
+    destruct HT as [T3 [T4 [H2 [H3 H4]]]].
+    apply (sub_inversion_prod _ _ _ ) in H4.
+    destruct H4 as [U1 [U2 [Heq [Hsub1 Hsub2]]]].
+    inversion Heq; subst.
+    eapply T_Sub. apply H2. apply Hsub1.
+  - apply (typing_inversion_pair _ _ ) in HT.
+    destruct HT as [T3 [T4 [H2 [H3 H4]]]].
+    apply (sub_inversion_prod _ _ _ ) in H4.
+    destruct H4 as [U1 [U2 [Heq [Hsub1 Hsub2]]]].
+    inversion Heq; subst.
+    eapply T_Sub. apply H3. apply Hsub2.
+Qed.
