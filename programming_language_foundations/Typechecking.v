@@ -430,3 +430,173 @@ Module TypecheckerExtensions.
   Qed.
 
 End TypecheckerExtensions.
+
+Module StepFunction.
+
+  Import MoreStlc.
+  Import STLCExtended.
+
+  Fixpoint is_value (t : tm) : bool :=
+    match t with
+    | abs _ _ _ => true
+    | const _ => true
+    | tinl T t' => is_value t'
+    | tinr T t' => is_value t'
+    | tnil T => true
+    | tcons t1 t2 => is_value t1 && is_value t2
+    | unit => true
+    | tpair t1 t2 => is_value t1 && is_value t2
+    | _ => false
+    end.
+
+  Theorem is_value_sound : forall t,
+      is_value t = true -> value t.
+  Proof with eauto with db.  
+    intro t. induction t; intro H; try solve_by_invert; eauto with db...
+    - inversion H. Search andb. rewrite andb_true_iff in H1.
+      destruct H1 as [H1 H2].
+      apply IHt1 in H1.
+      apply IHt2 in H2.
+      apply (v_lcons _ _ H1 H2).
+    - inversion H. rewrite andb_true_iff in H1.
+      destruct H1 as [H1 H2].
+      apply IHt1 in H1.
+      apply IHt2 in H2.
+      apply (v_pair _ _ H1 H2).
+  Qed.
+
+  Theorem is_value_complete : forall t,
+      value t -> is_value t = true.
+  Proof.
+    intros t H. induction H; simpl; eauto with db.
+    - rewrite andb_true_iff; auto.
+    - rewrite andb_true_iff; auto.
+  Qed.
+
+  Fixpoint stepf (t : tm) : option tm :=
+    if is_value t then fail
+    else
+      match t with
+      | var nm => fail
+      | app t1 t2 =>
+        if is_value t1 then
+          if is_value t2 then
+            match t1 with
+            | abs x T11 t12 => return ([x:=t2]t12)
+            | _ => fail
+            end
+          else
+            t2' <- stepf t2 ;;
+            return (app t1 t2')
+        else
+          t1' <- stepf t1 ;;
+          return (app t1' t2)
+    | scc t1 =>
+      match t1 with
+      | const n => return (const (S n))
+      | _ => t1' <- stepf t1;; return (scc t1')
+      end
+    | prd t1 =>
+      match t1 with
+      | const n => return (const (Nat.pred n))
+      | _ => t1' <- stepf t1 ;; return (prd t1') 
+      end
+    | mlt t1 t2 =>
+      match t1 with
+      | const n1 =>
+        match t2 with
+        | const n2 => return (const (mult n1 n2))
+        | _ => t2' <- stepf t2 ;; return (mlt t1 t2')
+        end
+      | _ =>
+        if is_value t1 then
+          fail
+        else
+          t1' <- stepf t1 ;; return (mlt t1' t2)
+      end
+    | test0 t1 t2 t3 =>
+      match t1 with
+      | const 0 => return t2
+      | const (S n) => return t3
+      | _ => t1' <- stepf t1 ;; return (test0 t1' t2 t3)
+      end
+    | tinl T t1 =>
+      t1' <- stepf t1 ;; return (tinl T t1')
+    | tinr T t1 =>
+      t1' <- stepf t1 ;; return (tinr T t1')
+    | tcase t0 y1 t1 y2 t2 =>
+      if is_value t0 then
+        match t0 with
+        | tinl T v0 => return ([y1:=v0]t1)
+        | tinr T v0 => return ([y2:=v0]t2)
+        | _ => fail
+        end
+      else
+        t0' <- stepf t0 ;; return (tcase t0' y1 t1 y2 t2)
+    | tcons t1 t2 => 
+      if is_value t1 then
+        t2' <- stepf t2 ;; return (tcons t1 t2')
+      else
+        t1' <- stepf t1 ;; return (tcons t1' t2)
+    | tlcase t1 t2 x1 x2 t3 =>
+      match t1 with
+      | tnil T => return t2
+      | tcons v1 vl =>
+        if is_value t1 then
+          return (subst x2 vl (subst x1 v1 t3))
+        else
+          t1' <- stepf t1 ;; return (tlcase t1' t2 x1 x2 t3)
+      | _ => t1' <- stepf t1 ;; return (tlcase t1' t2 x1 x2 t3)
+      end
+    | tpair t1 t2 =>
+      if is_value t1 then
+        t2' <- stepf t2 ;; return (tpair t1 t2')
+      else
+        t1' <- stepf t1 ;; return (tpair t1' t2)
+    | tfst t =>
+      if is_value t then
+        match t with
+        | tpair v1 v2 => return v1
+        | _ => fail
+        end
+      else
+        t' <- stepf t ;; return (tfst t')
+    | tsnd t =>
+      if is_value t then
+        match t with
+        | tpair v1 v2 => return v2
+        | _ => fail
+        end
+      else
+        t' <- stepf t ;; return (tsnd t')
+    | tlet x t1 t2 =>
+      if is_value t1 then
+        return ([x:=t1]t2)
+      else
+        t1' <- stepf t1 ;; return (tlet x t1' t2)
+    | tfix t =>
+      match t with
+      | abs xf T1 t2 => return ([xf:=tfix (abs xf T1 t2)] t2)
+      | _ => t' <- stepf t ;; return (tfix t')
+      end
+    | _ => fail
+    end.
+
+  Theorem sound_stepf : forall t t',
+      stepf t = Some t' -> t --> t'.
+  Proof with eauto with db.
+    intro t. induction t; intros t' H; try solve [inversion H].
+    - inversion H. destruct (is_value t1) eqn:Vt1.
+      + destruct (is_value t2) eqn:Vt2.
+        * destruct t1; try inversion H1. subst.
+          clear H1. apply ST_AppAbs. apply (is_value_sound _ Vt2).
+        * destruct (stepf t2) eqn:St2; inversion H1; subst.
+          clear H1. apply ST_App2.
+          apply (is_value_sound _ Vt1). auto.
+      + destruct (stepf t1) eqn:St1; inversion H1; subst.
+        clear H1. apply ST_App1. auto.
+    - inversion H.  destruct (stepf t); destruct t; try inversion H1; subst...
+    - inversion H. destruct (stepf t); destruct t; try inversion H1; subst...
+    - inversion H. destruct (is_value t1) eqn:Vt1.
+      + destruct t1; try solve [inversion H1].
+        destruct t2; try solve [inversion H1].
