@@ -595,8 +595,76 @@ Module StepFunction.
           apply (is_value_sound _ Vt1). auto.
       + destruct (stepf t1) eqn:St1; inversion H1; subst.
         clear H1. apply ST_App1. auto.
-    - inversion H.  destruct (stepf t); destruct t; try inversion H1; subst...
+    - inversion H. destruct (stepf t); destruct t; try inversion H1; subst...
     - inversion H. destruct (stepf t); destruct t; try inversion H1; subst...
     - inversion H. destruct (is_value t1) eqn:Vt1.
       + destruct t1; try solve [inversion H1].
-        destruct t2; try solve [inversion H1].
+        destruct (stepf t2) eqn:St2; destruct t2; inversion H1...
+      + destruct (stepf t1) eqn:St1; destruct t1;
+          try solve [inversion Vt1]; inversion H1...
+    - inversion H. destruct (stepf t1); destruct t1; inversion H1...
+      + destruct n; inversion H1... 
+      + destruct n; inversion H1...
+    - inversion H. destruct (is_value t0) eqn:Vt0; inversion H1...
+      destruct (stepf t0) eqn:St0; inversion H1...
+    - inversion H. destruct (is_value t0) eqn:Vt0; inversion H1...
+      destruct (stepf t0) eqn:St0; inversion H1...
+
+    - inversion H. destruct (stepf t1) eqn:St1;
+      destruct (is_value t1) eqn:Vt1;
+      destruct t1; inversion H1;
+      try apply is_value_sound in Vt1; inversion Vt1;
+      try apply ST_CaseInl...
+    - inversion H. destruct (is_value t1) eqn:Vt1.
+      + destruct (is_value t2) eqn:Vt2.
+        * simpl in H1; inversion H1.
+        * simpl in H1. destruct (stepf t2) eqn:St2; inversion H1.
+          apply ST_Cons2... apply is_value_sound...
+      + simpl in H1. destruct (stepf t1) eqn:St1; inversion H1.
+        apply ST_Cons1...
+    - inversion H. destruct (stepf t1) eqn:St1.
+      + destruct (is_value t1) eqn:Vt1.
+        * destruct t1; inversion H1; inversion Vt1; inversion St1;
+            try (rewrite H3 in H4; inversion H4).
+        * destruct t1; inversion H1; inversion St1;
+            apply ST_Lcase1; apply IHt1...
+      + destruct t1; inversion H1; subst...
+        destruct (is_value t1_1) eqn:Vt11.
+        * destruct (is_value t1_2) eqn:Vt12.
+          { simpl in H2. inversion H2. apply ST_LcaseCons.
+            { apply is_value_sound. apply Vt11. }
+            { apply is_value_sound. apply Vt12. }
+          }
+          { simpl in H2. inversion H2. }
+        * simpl in H2. inversion H2.
+    - inversion H. destruct (is_value t1) eqn: Vt1.
+      + destruct (is_value t2) eqn: Vt2.
+        * simpl in H1. inversion H1.
+        * simpl in H1. destruct (stepf t2) eqn:St1; inversion H1.
+          apply ST_Pair2.
+          { apply is_value_sound. auto. }
+          { apply IHt2... }
+      + simpl in H1. destruct (stepf t1) eqn:St1; inversion H1.
+        * apply ST_Pair1. apply IHt1... 
+    - inversion H. destruct (is_value t) eqn:Vt.
+      + destruct t; inversion H1. inversion Vt. subst.
+        rewrite andb_true_iff in H3. destruct H3 as [H3 H4].
+        apply ST_FstPair; apply is_value_sound; assumption.
+      + destruct (stepf t) eqn:St; inversion H1.
+        apply ST_Fst. apply IHt...
+    - inversion H. destruct (is_value t) eqn:Vt.
+      + destruct t; inversion H1. inversion Vt. subst.
+        rewrite andb_true_iff in H3. destruct H3 as [H3 H4].
+        apply ST_SndPair; apply is_value_sound; assumption.
+      + destruct (stepf t) eqn:St; inversion H1.
+        apply ST_Snd. apply IHt...
+    - inversion H. destruct (is_value t1) eqn:Vt1; inversion H1.
+      + apply ST_LetValue. apply is_value_sound...
+      + destruct (stepf t1) eqn:St1; inversion H2.
+        apply ST_Let1. apply IHt1...
+    - inversion H.
+      destruct (stepf t) eqn: St; destruct t;
+        inversion H1; inversion St;
+          try (apply ST_Fix1; apply IHt); auto.
+      apply ST_FixAbs.
+  Qed.
